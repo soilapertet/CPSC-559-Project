@@ -1,0 +1,1 @@
+// Handles logic for user registration and authentication.
