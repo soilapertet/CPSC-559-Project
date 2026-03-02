@@ -34,14 +34,14 @@ http://localhost:5173/
 
 ```
 cd backend
-touch .env 
 ```
-Add the following to the .env file:
+2. Create a .env file inside the backend folder
+3. Add the following to the .env file:
 ```
 PORT=5000
 ```
 
-2. Install and run:
+4.  Install and run:
 ```
 npm install
 npm run dev
