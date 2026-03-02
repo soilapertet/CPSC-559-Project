@@ -17,6 +17,7 @@ git clone https://github.com/soilapertet/CPSC-559-Project.git
 ## Frontend Setup
 
 ```
+cd CPSC-559-PROJECT
 cd frontend
 npm install
 npm run dev
