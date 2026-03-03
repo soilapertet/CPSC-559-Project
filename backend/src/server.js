@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import userRoutes from './routes/userRoutes.js';
+import browseRoutes from './routes/browseRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
 dotenv.config();
@@ -16,6 +17,9 @@ app.use("/user", userRoutes);
 
 // Requests to /transactions will be directed to the transactionRoutes.js module 
 app.use("/transactions", transactionRoutes);
+
+// Requests to /browse will be directed to the browseRoutes.js module
+app.use("/browse", browseRoutes);
 
 const PORT = process.env.PORT || 5000;
 
