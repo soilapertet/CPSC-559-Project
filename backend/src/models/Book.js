@@ -1,12 +1,10 @@
 import mongoose from "mongoose";
 
-const { Schema, model } = mongoose;
-
 // Define the schema of a Book instance and specify the required fields
 // totalCopies and availableCopies have a min value of 0 to avoid negative values 
 // isbn variable will store unique values
 // keywords and subjects will store an array of strings
-const bookSchema = new Schema({
+const bookSchema = new mongoose.Schema({
     title : {
         type : String,
         required : true,
@@ -23,6 +21,14 @@ const bookSchema = new Schema({
         unique : true,
         trim : true
     },
+    genre : {
+        type : String,
+        required : true
+    },
+    year : {
+        type : String,
+        required : true
+    },
     totalCopies : {
         type : Number,
         required : true,
@@ -32,33 +38,22 @@ const bookSchema = new Schema({
         type : Number,
         required : true,
         min : 0
-    },
-    keywords : {
-        type : [String],
-        default : []
-    },
-    subjects : {
-        type : [String],
-        default : []
-    },
-    genres : {
-        type : [String],
-        default : []
     }
 },
     { timestamps : true }
 );
 
-bookSchema.index({ subjects : 1 });
-bookSchema.index({ keywords : 1 });
+// Add indexing to categories for faster search when querying online library
+bookSchema.index({ title : 1 });
 bookSchema.index({ author : 1 });
-bookSchema.index({ genres : 1 });
+bookSchema.index({ genre : 1 });
+bookSchema.index({ isbn : 1 });
 
 bookSchema.index({ 
     title : "text",
     author : "text",
-    keywords : "text", 
-    subjects : "text" 
+    genre : "text",
+    year : "text"
 });
 
 const Book = model('Book', bookSchema);
