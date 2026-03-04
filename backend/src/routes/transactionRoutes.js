@@ -15,6 +15,6 @@ router.post('/borrow', borrowController.borrowBooks);
 router.post('/return', returnController.returnBooks);
 
 // Read-only operations
-router.get('/search', searchController.findBooks);
+router.get('/search', searchController.searchBooks);
 
 export default router;

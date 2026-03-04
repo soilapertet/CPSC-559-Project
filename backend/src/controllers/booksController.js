@@ -17,7 +17,7 @@ export const getBookById = async(req, res) => {
             return res.status(404).json({ error : "Book not found."});
         }
 
-        // Else, return result
+        // Else, return book result
         res.json(book);
     } catch(err) {
         res.status(500).json({ error : "An error occurred while fetching book."})
@@ -28,9 +28,9 @@ export const getBookById = async(req, res) => {
 export const getBooks = async(req, res) => {
 
     // Define the query body to query the MongoDB database
-    const query = {};
+    let query = {};
 
-    // Extract genre(s) from HTTP request, if present
+    // Extract genre(s) from the query string, if present
     const { genre } = req.query;
 
     if(genre) {
@@ -38,11 +38,12 @@ export const getBooks = async(req, res) => {
     } 
 
     try {
+        
+        // if query is empty, return all books
+        // else, return books of the specified genre
         const books = await Book.find(query);
         res.json(books)
     } catch (err) {
-        res
-            .status(500)
-            .json({ error : "An error occurred while fetching the books."})
+        res.status(500).json({ error : "An error occurred while fetching the books."})
     }
 }
