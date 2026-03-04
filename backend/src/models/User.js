@@ -6,19 +6,16 @@ const userSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-        
     name: {
         type: String,
         required: true
     },
-
     borrowedBooks: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Book"
         }
     ]
-
 }, {timestamps: true});
 
 const User = mongoose.model("User", userSchema);
