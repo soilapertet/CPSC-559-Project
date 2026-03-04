@@ -11,8 +11,8 @@ const router = express.Router();
 // Define routes
 
 // State-changing operations (Write Operations)
-router.post('/borrow', borrowController.borrowBooks);
-router.post('/return', returnController.returnBooks);
+router.post('/borrow', borrowController.borrowBook);
+router.post('/return', returnController.returnBook);
 
 // Read-only operations
 router.get('/search', searchController.searchBooks);
