@@ -41,6 +41,10 @@ const bookSchema = new Schema({
         type : [String],
         default : []
     },
+    genres : {
+        type : [String],
+        default : []
+    }
 },
     { timestamps : true }
 );
@@ -48,6 +52,7 @@ const bookSchema = new Schema({
 bookSchema.index({ subjects : 1 });
 bookSchema.index({ keywords : 1 });
 bookSchema.index({ author : 1 });
+bookSchema.index({ genres : 1 });
 
 bookSchema.index({ 
     title : "text",

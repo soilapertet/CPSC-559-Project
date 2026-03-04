@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 
 import userRoutes from './routes/userRoutes.js';
-import browseRoutes from './routes/browseRoutes.js';
+import booksRoutes from './routes/booksRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
 dotenv.config();
@@ -23,7 +23,7 @@ app.use("/user", userRoutes);
 app.use("/transactions", transactionRoutes);
 
 // Requests to /browse will be directed to the browseRoutes.js module
-app.use("/browse", browseRoutes);
+app.use("/books", booksRoutes);
 
 const PORT = process.env.PORT || 5000;
 
