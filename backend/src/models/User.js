@@ -1,22 +1,39 @@
 import mongoose from "mongoose";
 
+// Define the schema of a User instance and specify the required fields
+// userName and email variables will store to unique values
 const userSchema = new mongoose.Schema({
-    libraryId: {
-        type: String,
-        required: true,
-        unique: true
+    libraryId : {
+        type : String,
+        required : true,
+        unique : true,
     },
-    name: {
-        type: String,
-        required: true
+    firstName : {
+        type : String,
+        required : true,
+        trim : true
     },
-    borrowedBooks: [
+    lastName : { 
+        type : String,
+        required : true,
+        trim : true
+    },
+    email : {
+        type : String, 
+        required : true,
+        unique : true,
+        trim : true,
+        lowercase : true
+    },
+    borrowedBooks : [
         {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Book"
+            type : mongoose.Schema.Types.ObjectId,
+            ref : "Book"
         }
     ]
-}, {timestamps: true});
+},
+    { timestamps : true }
+);
 
-const User = mongoose.model("User", userSchema);
+const User = model('User', userSchema);
 export default User;
