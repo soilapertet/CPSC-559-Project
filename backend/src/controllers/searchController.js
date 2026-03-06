@@ -9,8 +9,8 @@ export const searchBooks = async (req, res) => {
     const query = {};
 
     // Extract the filter from the query string, if present 
-    // Filters : Keyword | Title | Author | Subject | ISBN
-    const { keyword, title, author, subject, isbn } = req.query;
+    // Filters : Keyword | Title | Author | Genre | ISBN
+    const { keyword, title, author, genre, isbn } = req.query;
 
     if(keyword) {
         query.$text = { $search : keyword };
@@ -24,9 +24,8 @@ export const searchBooks = async (req, res) => {
         query.author = { $regex : author, $options : "i" };
     }
 
-    if(subject) {
-        const subjects = subject.split(",");
-        query.subjects = { $in : subjects }
+    if(genre) {
+        query.genre = { $regex : genre, $options : "i" };
     }
 
     if(isbn) {

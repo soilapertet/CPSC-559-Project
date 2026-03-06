@@ -3,7 +3,11 @@ import axios from 'axios'
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000,
 })
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -33,39 +37,24 @@ function mockDelay(ms = 200) {
 // ─── API functions ─────────────────────────────────────────────────────────────
 
 export async function getAllBooks(params = {}) {
-  if (USE_MOCK) {
-    await mockDelay()
-    let books = [...mockBooks]
-    if (params.genre) books = books.filter(b => b.genre === params.genre)
-    if (params.available === 'true') books = books.filter(b => b.availableCopies > 0)
-    return { data: { success: true, data: books } }
+  try {
+    const response = await api.get('/books');
+    return { data : { success : true, data : response.data }  }
+  } catch (error) {
+    console.error("Error fetching books:", error.response?.data || error.message);
   }
-  return api.get('/books', { params })
 }
 
 export async function searchBooks(q, type = 'Keyword') {
-  if (USE_MOCK) {
-    await mockDelay()
-    const lower = q.toLowerCase()
-    const results = mockBooks.filter(b => {
-      switch (type) {
-        case 'Title':   return b.title.toLowerCase().includes(lower)
-        case 'Author':  return b.author.toLowerCase().includes(lower)
-        case 'Subject': return b.genre.toLowerCase().includes(lower)
-        case 'ISBN':    return b.isbn.includes(q)
-        default:        // Keyword — search everything
-          return (
-            b.title.toLowerCase().includes(lower) ||
-            b.author.toLowerCase().includes(lower) ||
-            b.genre.toLowerCase().includes(lower) ||
-            b.isbn.includes(q) ||
-            b.description.toLowerCase().includes(lower)
-          )
-      }
-    })
-    return { data: { success: true, data: results } }
+  try {
+    const response = await api.get('/books/search', { params: { 
+      [type.toLowerCase()] : q
+    } })
+    console.log(response.data);
+    return { data : { success : true, data : response.data}}
+  } catch (error) {
+    console.error("Error fetching books:", error.response?.data || error.message);
   }
-  return api.get('/books/search', { params: { q, type } })
 }
 
 export async function borrowBook(username, bookId) {
@@ -92,7 +81,7 @@ export async function borrowBook(username, bookId) {
     mockTransactions.push(tx)
     return { data: { success: true, data: tx } }
   }
-  return api.post('/borrow', { username, bookId })
+  return api.post('/books/borrow', { username, bookId })
 }
 
 export async function returnBook(username, bookId) {
@@ -109,7 +98,7 @@ export async function returnBook(username, bookId) {
     if (book) book.availableCopies += 1
     return { data: { success: true, data: tx } }
   }
-  return api.post('/return', { username, bookId })
+  return api.post('/books/return', { username, bookId })
 }
 
 export async function getActiveBorrows(username) {

@@ -5,7 +5,6 @@ import connectDB from "./config/db.js";
 
 import userRoutes from './routes/userRoutes.js';
 import booksRoutes from './routes/booksRoutes.js';
-import transactionRoutes from './routes/transactionRoutes.js';
 
 dotenv.config();
 
@@ -17,10 +16,7 @@ app.use(cors());
 app.use(express.json());
 
 // // Requests to /user will be directed to the userRoutes.js module
-app.use("/user", userRoutes);
-
-// Requests to /transactions will be directed to the transactionRoutes.js module 
-app.use("/transactions", transactionRoutes);
+app.use("/books/user", userRoutes);
 
 // Requests to /browse will be directed to the browseRoutes.js module
 app.use("/books", booksRoutes);

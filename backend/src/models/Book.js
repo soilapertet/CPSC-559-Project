@@ -1,10 +1,10 @@
-import mongoose from "mongoose";
+import { Schema, model} from "mongoose";
 
 // Define the schema of a Book instance and specify the required fields
 // totalCopies and availableCopies have a min value of 0 to avoid negative values 
 // isbn variable will store unique values
 // keywords and subjects will store an array of strings
-const bookSchema = new mongoose.Schema({
+const bookSchema = new Schema({
     title : {
         type : String,
         required : true,
@@ -47,7 +47,6 @@ const bookSchema = new mongoose.Schema({
 bookSchema.index({ title : 1 });
 bookSchema.index({ author : 1 });
 bookSchema.index({ genre : 1 });
-bookSchema.index({ isbn : 1 });
 
 bookSchema.index({ 
     title : "text",

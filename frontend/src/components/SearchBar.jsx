@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-const SEARCH_TYPES = ['Keyword', 'Title', 'Author', 'Subject', 'ISBN']
+const SEARCH_TYPES = ['Keyword', 'Title', 'Author', 'Genre', 'ISBN']
 
 export default function SearchBar({ onSearch, placeholder }) {
   const [value, setValue] = useState('')

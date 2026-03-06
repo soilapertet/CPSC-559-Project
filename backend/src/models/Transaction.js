@@ -1,6 +1,4 @@
-import mongoose from "mongoose";
-
-const { Schema, model } = mongoose;
+import { Schema, model } from "mongoose";
 
 // Define the schema for a Transaction instance
 // userId, bookId, status are required fields to keep track of the user, book and their relationship 

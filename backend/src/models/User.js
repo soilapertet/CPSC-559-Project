@@ -1,8 +1,8 @@
-import mongoose from "mongoose";
+import { Schema, model } from "mongoose";
 
 // Define the schema of a User instance and specify the required fields
 // userName and email variables will store to unique values
-const userSchema = new mongoose.Schema({
+const userSchema = new Schema({
     firstName : {
         type : String,
         required : true,
