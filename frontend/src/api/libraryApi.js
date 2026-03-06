@@ -38,8 +38,22 @@ function mockDelay(ms = 200) {
 
 export async function getAllBooks(params = {}) {
   try {
+
+    // Handles the filtering process
+    if (params) {
+      const key = Object.keys(params)[0];
+      const response = await api.get('/books/search', {
+        params: {
+          [key]: params.genre
+        }
+      });
+
+      return { data: { success: true, data: response.data } }
+    } 
+
+    // Fetches all books if filter is not specified
     const response = await api.get('/books');
-    return { data : { success : true, data : response.data }  }
+    return { data: { success: true, data: response.data } }
   } catch (error) {
     console.error("Error fetching books:", error.response?.data || error.message);
   }
@@ -47,11 +61,13 @@ export async function getAllBooks(params = {}) {
 
 export async function searchBooks(q, type = 'Keyword') {
   try {
-    const response = await api.get('/books/search', { params: { 
-      [type.toLowerCase()] : q
-    } })
+    const response = await api.get('/books/search', {
+      params: {
+        [type.toLowerCase()]: q
+      }
+    })
     console.log(response.data);
-    return { data : { success : true, data : response.data}}
+    return { data: { success: true, data: response.data } }
   } catch (error) {
     console.error("Error fetching books:", error.response?.data || error.message);
   }
@@ -124,11 +140,16 @@ export async function getBorrowHistory(username) {
 }
 
 export async function registerUser(username) {
-  if (USE_MOCK) {
-    await mockDelay(50)
+  // if (USE_MOCK) {
+  //   await mockDelay(50)
+  //   return { data: { success: true, data: { username } } }
+  // }
+  try {
+    const response = await api.post('/books/users/register', { username })
     return { data: { success: true, data: { username } } }
+  } catch (err) {
+    console.error("Error registering user:", error.response?.data || error.message);
   }
-  return api.post('/users/register', { username })
 }
 
 export default api
