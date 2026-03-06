@@ -28,6 +28,8 @@ export default function AuthModal({ onSuccess }) {
       if (status === 404) {
         setStep('register')
         setForm(f => ({ ...f, userName: identifier.trim() }))
+      } else if (!err.response) {
+        setError('Cannot reach the server. Is the backend running on port 5000?')
       } else {
         setError(err.response?.data?.error || 'Login failed. Please try again.')
       }
