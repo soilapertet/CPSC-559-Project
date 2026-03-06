@@ -1,31 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import TransactionTable from '../components/TransactionTable'
+import AuthModal from '../components/AuthModal'
 import { useUser } from '../context/UserContext'
 import { getActiveBorrows, getBorrowHistory, returnBook } from '../api/libraryApi'
 
 export default function MyBooksPage() {
-  const { username, login } = useUser()
+  const { username, userId } = useUser()
   const navigate = useNavigate()
 
   const [activeTab, setActiveTab] = useState('active')
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
-  const [tempUsername, setTempUsername] = useState('')
-  const [loginError, setLoginError] = useState('')
 
   useEffect(() => {
-    if (username) fetchTransactions()
-  }, [username, activeTab])
+    if (userId) fetchTransactions()
+  }, [userId, activeTab])
 
   async function fetchTransactions() {
     setLoading(true)
     try {
       const res = activeTab === 'active'
-        ? await getActiveBorrows(username)
-        : await getBorrowHistory(username)
-      setTransactions(res.data.data)
+        ? await getActiveBorrows(userId)
+        : await getBorrowHistory(userId)
+      setTransactions(res.data)
     } catch {
       setTransactions([])
     } finally {
@@ -35,51 +34,19 @@ export default function MyBooksPage() {
 
   async function handleReturn(bookId) {
     try {
-      const res = await returnBook(username, bookId)
-      if (res.data.success) {
-        setSuccessMsg('Book returned successfully!')
-        fetchTransactions()
-        setTimeout(() => setSuccessMsg(''), 3000)
-      }
+      await returnBook(userId, bookId)
+      setSuccessMsg('Book returned successfully!')
+      fetchTransactions()
+      setTimeout(() => setSuccessMsg(''), 3000)
     } catch {
       // silently ignore for now
     }
   }
 
-  async function handleLogin() {
-    setLoginError('')
-    if (!tempUsername.trim()) {
-      setLoginError('Please enter a username.')
-      return
-    }
-    await login(tempUsername.trim())
-  }
-
-  if (!username) {
+  if (!userId) {
     return (
       <div className="max-w-sm mx-auto mt-16 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-1">Set Your Username</h2>
-        <p className="text-sm text-gray-500 mb-5">
-          Enter a username to view and manage your borrowed books.
-        </p>
-        <input
-          type="text"
-          value={tempUsername}
-          onChange={e => setTempUsername(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleLogin()}
-          placeholder="e.g. alice"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          autoFocus
-        />
-        {loginError && (
-          <p className="text-xs text-red-500 mb-3">{loginError}</p>
-        )}
-        <button
-          onClick={handleLogin}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          Continue
-        </button>
+        <AuthModal onSuccess={fetchTransactions} />
       </div>
     )
   }
