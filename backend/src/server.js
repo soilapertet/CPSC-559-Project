@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 
 import userRoutes from './routes/userRoutes.js';
 import booksRoutes from './routes/booksRoutes.js';
+import borrowRoutes from './routes/borrowRoutes.js';
 
 dotenv.config();
 
@@ -20,6 +21,8 @@ app.use("/books/user", userRoutes);
 
 // Requests to /browse will be directed to the browseRoutes.js module
 app.use("/books", booksRoutes);
+
+app.use("/borrow", borrowRoutes);
 
 const PORT = process.env.PORT || 5000;
 
