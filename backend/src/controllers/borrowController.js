@@ -3,6 +3,30 @@ import Book from "../models/Book.js";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 
+export const getActiveBorrows = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const transactions = await Transaction.find({ userId, status: 'borrowed' })
+      .populate('bookId', 'title author')
+      .sort({ createdAt: -1 });
+    res.status(200).json(transactions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getBorrowHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const transactions = await Transaction.find({ userId })
+      .populate('bookId', 'title author')
+      .sort({ createdAt: -1 });
+    res.status(200).json(transactions);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const borrowBook = async (req, res) => {
   try {
     const { userId, bookId } = req.body;
