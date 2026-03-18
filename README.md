@@ -42,14 +42,30 @@ PORT=5000
 ```
 
 4.  Install and run:
+
+Run server by: 
+4.1 Leader:
 ```
-npm install
-npm run dev
+Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=3001; npm run dev'
 ```
 
-If successful, the server will run at:
+4.2 Follower i: 
 ```
-http://localhost:5000
+Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=<3002>; npm run dev'
+```
+
+```
+Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=<3003>; npm run dev'
+```
+
+If successful, the leader server will run at:
+```
+http://localhost:3001
+```
+and the followers will run at:
+```
+http://localhost:3002
+http://localhost:3003
 ```
 
 Health check endpoint:
