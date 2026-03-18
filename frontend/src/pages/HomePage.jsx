@@ -40,6 +40,10 @@ export default function HomePage() {
     }
     setLoading(true)
     try {
+      // check if q is a id (24 characters, starting with 69)
+      if (q.length === 24 && q.startsWith('69')) {
+        type = 'id'
+      }
       const res = await searchBooks(q, type)
       setBooks(res.data.data)
     } catch {
