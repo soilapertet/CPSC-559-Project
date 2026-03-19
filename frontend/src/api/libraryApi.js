@@ -103,14 +103,9 @@ export async function searchBooks(q, type = 'Keyword') {
 }
 
 export async function loginUser(identifier) {
-  try {
-    const response = await follower1Api.post('/books/user/login', { identifier })
-    return response.data
-  } catch (timeoutError) {
-    // try the leader if follower 1 is down
-    const response = await leaderApi.post('/books/user/login', { identifier })
-    return response.data 
-  }
+  // try the leader if follower 1 is down
+  const response = await leaderApi.post('/books/user/login', { identifier })
+  return response.data 
 }
 
 export async function registerUser(firstName, lastName, userName, email) {
@@ -127,11 +122,22 @@ export async function returnBook(userId, bookId) {
 }
 
 export async function getActiveBorrows(userId) {
-  return leaderApi.get(`/borrow/active/${userId}`)
+  try {
+    return await follower1Api.get(`/borrow/active/${userId}`)
+  }
+  catch (timeoutError) {
+    // try the leader if follower 1 is down
+    return await leaderApi.get(`/borrow/active/${userId}`)
+  }
 }
 
 export async function getBorrowHistory(userId) {
-  return leaderApi.get(`/borrow/history/${userId}`)
+  try {
+    return await follower1Api.get(`/borrow/history/${userId}`)
+  }
+  catch (timeoutError) {
+    return await leaderApi.get(`/borrow/history/${userId}`)
+  }
 }
 
 export default leaderApi
