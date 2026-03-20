@@ -1,6 +1,6 @@
 // Handles logic for user registration and authentication.
 import User from "../models/User.js";
-import { propagateToFollowers } from "../replication/propagate.js";
+import { propagateToFollowers } from "../replication/leader.js";
 
 // ================== Create User ==================
 export const createUser = async (req, res) => {
@@ -41,7 +41,7 @@ export const createUser = async (req, res) => {
     await newUser.save();
 
     // Propagate to followers (leader only, fire-and-forget)
-    propagateToFollowers('createUser', {
+    await propagateToFollowers('createUser', {
       _id: newUser._id.toString(),
       firstName,
       lastName,

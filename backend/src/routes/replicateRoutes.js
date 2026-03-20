@@ -1,5 +1,5 @@
 import express from 'express';
-import { handleReplicate } from '../controllers/replicateController.js';
+import { handleReplicate } from '../replication/follower.js';
 
 const router = express.Router();
 
