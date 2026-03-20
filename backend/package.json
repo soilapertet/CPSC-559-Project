@@ -6,17 +6,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "start:leader":    "cross-env PORT=3001 NODE_ROLE=leader    FOLLOWER_URLS=http://localhost:3002,http://localhost:3003 MONGODB_URI=mongodb+srv://pertetUser:xvWAGfCVcx4aMX2K@library-cluster.gapytxk.mongodb.net/library_node_1?appName=Library-Cluster node src/server.js",
-    "start:follower1": "cross-env PORT=3002 NODE_ROLE=follower  LEADER_URL=http://localhost:3001 MONGODB_URI=mongodb+srv://pertetUser:xvWAGfCVcx4aMX2K@library-cluster.gapytxk.mongodb.net/library_node_2?appName=Library-Cluster node src/server.js",
-    "start:follower2": "cross-env PORT=3003 NODE_ROLE=follower  LEADER_URL=http://localhost:3001 MONGODB_URI=mongodb+srv://pertetUser:xvWAGfCVcx4aMX2K@library-cluster.gapytxk.mongodb.net/library_node_3?appName=Library-Cluster node src/server.js"
+    "leader": "cross-env NODE_ENV=leader nodemon src/server.js",
+    "follower1": "cross-env NODE_ENV=follower1 nodemon src/server.js",
+    "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.6",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "mongoose": "^9.2.4"

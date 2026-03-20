@@ -40,7 +40,7 @@ export const returnBook = async (req, res) => {
     }
 
     // Propagate to followers (leader only, fire-and-forget)
-    propagateToFollowers('return', {
+    await propagateToFollowers('return', {
       transactionId: transaction._id.toString(),
       bookId: bookId.toString(),
       returnedAt: transaction.returnedAt
