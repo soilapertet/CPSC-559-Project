@@ -21,6 +21,7 @@
     "mongoose": "^9.2.4"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.1.14"
   }
 }

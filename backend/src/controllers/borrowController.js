@@ -2,6 +2,7 @@
 import Book from "../models/Book.js";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
+import { propagateToFollowers } from "../replication/propagate.js";
 
 export const getActiveBorrows = async (req, res) => {
   try {
@@ -66,6 +67,14 @@ export const borrowBook = async (req, res) => {
     });
 
     await transaction.save();
+
+    // Propagate to followers (leader only, fire-and-forget)
+    propagateToFollowers('borrow', {
+      userId: user._id.toString(),
+      bookId: book._id.toString(),
+      transactionId: transaction._id.toString(),
+      dueDate: transaction.dueDate
+    });
 
     res.status(200).json({
       message: "Book borrowed successfully",
