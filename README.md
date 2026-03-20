@@ -6,6 +6,7 @@ Clone the repository from Github
 
 ```
 git clone https://github.com/soilapertet/CPSC-559-Project.git
+cd CPSC-559-Project
 ```
 
 ### Prerequisites
@@ -15,63 +16,80 @@ git clone https://github.com/soilapertet/CPSC-559-Project.git
 - npm
 
 ## Frontend Setup
+1. Navigate to frontend folder 
 
 ```
-cd CPSC-559-PROJECT
 cd frontend
+```
+2. Install dependencies
+
+```
 npm install
+```
+
+3. Start the development server
+
+```
 npm run dev
 ```
 
-If successful, the frontend will run at:
+The frontend will run at:
 
 ```
 http://localhost:5173/
 ```
 
 ## Backend Setup
-1. Create an environment folder in the backend folder
+1. Navigate to backend folder
 
 ```
 cd backend
 ```
-2. Create three.env file inside the backend folder
-   - leader.env
-   - follower1.env
-   - follower2.env
-4. Add the following to the .env file:
-```
-PORT=5000
-```
 
-4.  Install and run:
-
-Run server by: 
-4.1 Leader:
-```
-Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=3001; npm run dev'
-```
-
-4.2 Follower i: 
-```
-Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=<3002>; npm run dev'
-```
+2. Install dependencies
 
 ```
-Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=<3003>; npm run dev'
+npm install
 ```
 
-If successful, the leader server will run at:
+3. Copy example environment files
+
+```
+cp -r env.example/ env/
+```
+
+3. Update the values inside the env/ folder
+   
+# Running the servers
+
+## Leader:
+
+```
+npm run leader
+```
+
+Runs on 
+
 ```
 http://localhost:3001
 ```
-and the followers will run at:
+
+## Followers: 
+
+```
+npm run follower1
+npm run follower2
+```
+
+Run on
+
 ```
 http://localhost:3002
 http://localhost:3003
 ```
 
-Health check endpoint:
+# Health check endpoint:
+
 ```
 GET /health
 ```
