@@ -30,13 +30,16 @@ http://localhost:5173/
 ```
 
 ## Backend Setup
-1. Create an environment file in the backend folder
+1. Create an environment folder in the backend folder
 
 ```
 cd backend
 ```
-2. Create a .env file inside the backend folder
-3. Add the following to the .env file:
+2. Create three.env file inside the backend folder
+   - leader.env
+   - follower1.env
+   - follower2.env
+4. Add the following to the .env file:
 ```
 PORT=5000
 ```
