@@ -16,7 +16,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// // Requests to /user will be directed to the userRoutes.js module
+
+// Requests to /user will be directed to the userRoutes.js module
 app.use("/books/user", userRoutes);
 
 // Requests to /browse will be directed to the browseRoutes.js module
