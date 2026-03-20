@@ -1,12 +1,19 @@
 // Define environment variables, ports, node roles
+import dotenv from 'dotenv';
+import path from 'path';
+
+const env = process.env.NODE_ENV;
+dotenv.config({ path: path.resolve(`./env/${env}.env`), override: true });
+
 export const config = {
-    role: process.env.ROLE || 'follower',
-    port: process.env.PORT || 3001,
+    role: process.env.ROLE,
+    port: process.env.PORT,
     leader: {
-        url: process.env.URL || 'http://localhost:3001'
+        url: process.env.LEADER_URL
     },
     followers: [
-        process.env.FOLLOWER1_URL || 'http://localhost:3002',
-        process.env.FOLLOWER2_URL || 'http://localhost:3003'
-    ]
-}
+        process.env.FOLLOWER1_URL,
+        process.env.FOLLOWER2_URL,
+    ],
+    mongo_uri: process.env.MONGODB_URI
+};

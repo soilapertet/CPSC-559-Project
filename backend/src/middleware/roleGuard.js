@@ -1,5 +1,5 @@
 // Logic to block writes to Follower nodes
-import { config } from "../config/config";
+import { config } from "../config/config.js";
 
 export const isLeader = (req, res, next) => {
     
