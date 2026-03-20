@@ -1,6 +1,7 @@
 // Handles logic for returning transactions.
 import Book from "../models/Book.js";
 import Transaction from "../models/Transaction.js";
+import { propagateToFollowers } from "../replication/propagate.js";
 
 export const returnBook = async (req, res) => {
   try {
@@ -37,6 +38,13 @@ export const returnBook = async (req, res) => {
       book.availableCopies += 1;
       await book.save();
     }
+
+    // Propagate to followers (leader only, fire-and-forget)
+    propagateToFollowers('return', {
+      transactionId: transaction._id.toString(),
+      bookId: bookId.toString(),
+      returnedAt: transaction.returnedAt
+    });
 
     res.status(200).json({
       message: "Book returned successfully",
