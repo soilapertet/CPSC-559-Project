@@ -23,25 +23,25 @@ app.use("/books/user", userRoutes);
 // Requests to /browse will be directed to the browseRoutes.js module
 app.use("/books", booksRoutes);
 
+// Requests to /borrow will be directed to the borrowRoutes.js module
 app.use("/borrow", borrowRoutes);
+
+// Follower nodes will accept replication from leader  through /replicate node
+app.use("/replicate", replicateRoutes);
 
 app.listen(config.port, () => {
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
 });
 
-// Read-only borrow history routes — available on all nodes
-app.use("/borrow", borrowRoutes);
+// // Read-only borrow history routes — available on all nodes
+// app.use("/borrow", borrowRoutes);
 
-if (config.role === 'follower') {
-  // Followers: serve reads only + accept replication from leader
-  app.use("/books", followerBooksRoutes);
-  app.use("/replicate", replicateRoutes);
-} else {
-  // Leader: serve all operations (reads + writes)
-  app.use("/books/user", userRoutes);
-  app.use("/books", booksRoutes);
-}
-
-app.listen(PORT, () => {
-  console.log(`[${role.toUpperCase()}] Server running on port ${PORT}`);
-});
+// if (config.role === 'follower') {
+//   // Followers: serve reads only + accept replication from leader
+//   app.use("/books", followerBooksRoutes);
+//   app.use("/replicate", replicateRoutes);
+// } else {
+//   // Leader: serve all operations (reads + writes)
+//   app.use("/books/user", userRoutes);
+//   app.use("/books", booksRoutes);
+// }

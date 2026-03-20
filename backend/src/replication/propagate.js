@@ -1,10 +1,12 @@
 // Leader broadcasts write operations to all follower nodes (fire-and-forget).
 // Followers apply the same operation to their own databases via POST /replicate.
 
-export async function propagateToFollowers(operation, data) {
-  if (process.env.NODE_ROLE !== 'leader') return;
+import { config } from "dotenv";
 
-  const urls = (process.env.FOLLOWER_URLS || '').split(',').filter(Boolean);
+export async function propagateToFollowers(operation, data) {
+  if (config.role !== 'leader') return;
+
+  const urls = config.followers.filter(Boolean);
 
   for (const url of urls) {
     fetch(`${url.trim()}/replicate`, {

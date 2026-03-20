@@ -2,6 +2,8 @@
 // Re-applies the same DB operation on this follower's own database,
 // using the same _id values as the leader to ensure ID consistency across nodes.
 
+import { config } from '../config/config.js';
+
 import Book from '../models/Book.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
@@ -9,7 +11,7 @@ import Transaction from '../models/Transaction.js';
 export const handleReplicate = async (req, res) => {
   const { operation, data, timestamp } = req.body;
 
-  console.log(`[Follower:${process.env.PORT}] Received replication: '${operation}' at ${timestamp}`);
+  console.log(`[Follower:${config.port}] Received replication: '${operation}' at ${timestamp}`);
 
   try {
     if (operation === 'createUser') {
@@ -21,7 +23,7 @@ export const handleReplicate = async (req, res) => {
         userName: data.userName,
         email: data.email
       });
-      console.log(`[Follower:${process.env.PORT}] Applied: createUser (${data.userName})`);
+      console.log(`[Follower:${config.port}] Applied: createUser (${data.userName})`);
     }
 
     else if (operation === 'borrow') {
@@ -36,7 +38,7 @@ export const handleReplicate = async (req, res) => {
         status: 'borrowed',
         dueDate: new Date(data.dueDate)
       });
-      console.log(`[Follower:${process.env.PORT}] Applied: borrow (book ${data.bookId})`);
+      console.log(`[Follower:${config.port}] Applied: borrow (book ${data.bookId})`);
     }
 
     else if (operation === 'return') {
@@ -48,21 +50,21 @@ export const handleReplicate = async (req, res) => {
 
       // Increment availableCopies on this node's book
       await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: 1 } });
-      console.log(`[Follower:${process.env.PORT}] Applied: return (book ${data.bookId})`);
+      console.log(`[Follower:${config.port}] Applied: return (book ${data.bookId})`);
     }
 
     else {
-      console.warn(`[Follower:${process.env.PORT}] Unknown operation: ${operation}`);
+      console.warn(`[Follower:${config.port}] Unknown operation: ${operation}`);
     }
 
     res.status(200).json({
       message: 'Replication applied',
       operation,
-      port: process.env.PORT
+      port: config.port
     });
 
   } catch (err) {
-    console.error(`[Follower:${process.env.PORT}] Replication error for '${operation}': ${err.message}`);
+    console.error(`[Follower:${config.port}] Replication error for '${operation}': ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 };
