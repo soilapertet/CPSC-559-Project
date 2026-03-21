@@ -8,7 +8,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "leader": "cross-env NODE_ENV=leader nodemon src/server.js",
     "follower1": "cross-env NODE_ENV=follower1 nodemon src/server.js",
-    "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js"
+    "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js",
+    "follower3": "cross-env NODE_ENV=follower3 nodemon src/server.js"
   },
   "keywords": [],
   "author": "",

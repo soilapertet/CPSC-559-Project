@@ -30,6 +30,15 @@ const follower2Api = axios.create({
   timeout: 10000,
 })
 
+// Create an axios instance for follower 3 - read operations are directed to follower 2
+const follower3Api = axios.create({
+  baseURL: import.meta.env.FOLLOWER2_URL || 'http://localhost:3004/',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  timeout: 10000,
+})
+
 // Distribute read requests evenly between follower nodes (Load balancing)
 const apis = [follower1Api, follower2Api];
 let index = 0;
