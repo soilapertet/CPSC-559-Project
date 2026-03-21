@@ -32,7 +32,7 @@ const follower2Api = axios.create({
 
 // Create an axios instance for follower 3 - read operations are directed to follower 2
 const follower3Api = axios.create({
-  baseURL: import.meta.env.FOLLOWER2_URL || 'http://localhost:3004/',
+  baseURL: import.meta.env.FOLLOWER3_URL || 'http://localhost:3004/',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -40,7 +40,7 @@ const follower3Api = axios.create({
 })
 
 // Distribute read requests evenly between follower nodes (Load balancing)
-const apis = [follower1Api, follower2Api];
+const apis = [follower1Api, follower2Api, follower3Api];
 let index = 0;
 
 function getApi() {
