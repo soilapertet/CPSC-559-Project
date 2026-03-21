@@ -1,7 +1,7 @@
 // Handles logic for returning transactions.
 import Book from "../models/Book.js";
 import Transaction from "../models/Transaction.js";
-import { propagateToFollowers } from "../replication/propagate.js";
+import { propagateToFollowers } from "../replication/leader.js";
 
 export const returnBook = async (req, res) => {
   try {
