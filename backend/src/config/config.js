@@ -8,10 +8,9 @@ dotenv.config({ path: path.resolve(`./env/${env}.env`), override: true });
 export const config = {
     role: process.env.ROLE,
     port: process.env.PORT,
-    leader: {
-        url: process.env.LEADER_URL
-    },
+
     followers: [
+        process.env.LEADER_URL,
         process.env.FOLLOWER1_URL,
         process.env.FOLLOWER2_URL,
         process.env.FOLLOWER3_URL,

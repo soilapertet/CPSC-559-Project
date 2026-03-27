@@ -10,7 +10,7 @@
     "follower1": "cross-env NODE_ENV=follower1 nodemon src/server.js",
     "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js",
     "follower3": "cross-env NODE_ENV=follower3 nodemon src/server.js",
-    "start": "concurrently --names \"LEADER,F1,F2,F3\" --prefix-colors \"green,cyan,yellow,magenta\" \"npm run leader\" \"npm run follower1\" \"npm run follower2\" \"npm run follower3\""
+    "start": "concurrently --names \"N0,N1,N2,N3\" --prefix-colors \"green,cyan,yellow,magenta\" --handle-input \"npm run leader\" \"npm run follower1\" \"npm run follower2\" \"npm run follower3\""
   },
   "keywords": [],
   "author": "",

@@ -9,6 +9,8 @@ import booksRoutes from './routes/booksRoutes.js';
 import followerBooksRoutes from './routes/followerBooksRoutes.js';
 import borrowRoutes from './routes/borrowRoutes.js';
 import replicateRoutes from './routes/replicateRoutes.js';
+import electionRoutes from './routes/electionRoutes.js';
+import { startInitialElection } from './replication/bullyElection.js';
 
 // Create a connection to the MongoDB instance
 connectDB();
@@ -29,8 +31,14 @@ app.use("/borrow", borrowRoutes);
 // Follower nodes will accept replication from leader  through /replicate node
 app.use("/replicate", replicateRoutes);
 
+app.use("/election", electionRoutes);
+
 app.listen(config.port, () => {
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+
+  setTimeout(() => {
+      startInitialElection();
+    }, 2000);
 });
 
 // // Read-only borrow history routes — available on all nodes
