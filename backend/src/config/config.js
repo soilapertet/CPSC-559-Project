@@ -15,6 +15,7 @@ export const config = {
         process.env.FOLLOWER1_URL,
         process.env.FOLLOWER2_URL,
         process.env.FOLLOWER3_URL,
+        process.env.FOLLOWER4_URL,
     ],
     mongo_uri: process.env.MONGODB_URI
 };
