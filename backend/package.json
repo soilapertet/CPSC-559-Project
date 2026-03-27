@@ -10,7 +10,8 @@
     "follower1": "cross-env NODE_ENV=follower1 nodemon src/server.js",
     "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js",
     "follower3": "cross-env NODE_ENV=follower3 nodemon src/server.js",
-    "follower4": "cross-env NODE_ENV=follower4 nodemon src/server.js"
+    "follower4": "cross-env NODE_ENV=follower4 nodemon src/server.js",
+    "start": "concurrently --names \"N0,N1,N2,N3\" --prefix-colors \"green,cyan,yellow,magenta\" --handle-input \"npm run leader\" \"npm run follower1\" \"npm run follower2\" \"npm run follower3\""
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,7 @@
     "mongoose": "^9.2.4"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "nodemon": "^3.1.14"
   }

@@ -13,6 +13,9 @@ import healthRoute from './routes/healthRoute.js';
 import { startLeaderHeartbeat } from "./replication/leader.js";
 import { startFollowerHeartbeat } from "./replication/follower.js";
 
+import electionRoutes from './routes/electionRoutes.js';
+import { startInitialElection } from './replication/bullyElection.js';
+
 const HEARTBEAT_DELAY = 5000;
 
 // Create a connection to the MongoDB instance
@@ -37,6 +40,9 @@ app.use("/replicate", replicateRoutes);
 // Add a health checkpoint for nodes
 app.use("/health", healthRoute);
 
+// Add a endpoint to leader election algorithm
+app.use("/election", electionRoutes);
+
 app.listen(config.port, () => {
 
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
@@ -55,5 +61,9 @@ app.listen(config.port, () => {
       startFollowerHeartbeat();
     }, HEARTBEAT_DELAY);
   }
+  
+  setTimeout(() => {
+      startInitialElection();
+    }, 2000);
 });
 
