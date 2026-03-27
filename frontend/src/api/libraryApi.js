@@ -1,41 +1,35 @@
 import axios from 'axios'
 
-// Create an axios instance for Leader - write or read operatiosn are directed to the leader
+// All known node URLs — used to poll for new leader during election
+export const ALL_NODE_URLS = [
+  'http://localhost:3001/',
+  'http://localhost:3002/',
+  'http://localhost:3003/',
+  'http://localhost:3004/',
+]
+
 const leaderApi = axios.create({
-  // here I hardcode the leader URL,
-  // but later it should be dynamic based on the response from election
-  // each follower should have its own URL and database
-  baseURL: import.meta.env.LEADER_URL || 'http://localhost:3001/',
-  headers: {
-    'Content-Type': 'application/json'
-  },
+  baseURL: 'http://localhost:3001/',
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
-// Create an axios instance for follower 1 - read operations are directed to follower 1
 const follower1Api = axios.create({
-  baseURL: import.meta.env.FOLLOWER1_URL || 'http://localhost:3002/',
-  headers: {
-    'Content-Type': 'application/json'
-  },
+  baseURL: 'http://localhost:3002/',
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
-// Create an axios instance for follower 2 - read operations are directed to follower 2
 const follower2Api = axios.create({
-  baseURL: import.meta.env.FOLLOWER2_URL || 'http://localhost:3003/',
-  headers: {
-    'Content-Type': 'application/json'
-  },
+  baseURL: 'http://localhost:3003/',
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 // Create an axios instance for follower 3 - read operations are directed to follower 3
 const follower3Api = axios.create({
-  baseURL: import.meta.env.FOLLOWER3_URL || 'http://localhost:3004/',
-  headers: {
-    'Content-Type': 'application/json'
-  },
+  baseURL: 'http://localhost:3004/',
+  headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
@@ -53,108 +47,53 @@ const apis = [follower1Api, follower2Api, follower3Api, follower4Api];
 let index = 0;
 
 function getApi() {
+  if (apis.length === 0) return leaderApi  // all followers dead — fall back to leader
   return apis[index++ % apis.length]
 }
 
-// Run server by: 
-// Leader: Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=3001; npm run dev'
-// Follower 1: Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=3002; npm run dev'
-// Follower 2: Start-Process powershell -ArgumentList '-NoExit', '$env:PORT=3003; npm run dev'
+// ─── Dynamic leader/follower management (called by SSE event handler in App.jsx) ─
 
-// ─── API functions ─────────────────────────────────────────────────────────────
+export function setLeaderUrl(url) {
+  const base = url.endsWith('/') ? url : url + '/'
+  leaderApi.defaults.baseURL = base
+}
+
+export function getLeaderUrl() {
+  return leaderApi.defaults.baseURL
+}
+
+export function removeFollower(url) {
+  const base = url.endsWith('/') ? url : url + '/'
+  const i = apis.findIndex(a => a.defaults.baseURL === base)
+  if (i !== -1) apis.splice(i, 1)
+}
+
+// ─── API functions ────────────────────────────────────────────────────────────
 
 export async function getAllBooks(params = {}) {
-
-  const follower = getApi();
-
+  const follower = getApi()
   if (params && Object.keys(params).length > 0) {
-    const key = Object.keys(params)[0];
-    try {
-      const response = await follower.get('/books/search', {
-        params: { [key]: params[key] }
-      });
-      return { data: { success: true, data: response.data } }
-
-    } catch (err) {
-      if (err.code === 'ECONNABORTED') {
-        console.warn('Follower timed out, falling back to leader...');
-      }
-      // try the leader if followers are down
-      try {
-        const response = await leaderApi.get('/books/search', {
-          params: { [key]: params[key] }
-        });
-        return { data: { success: true, data: response.data } }
-      } catch (error) {
-        console.error("Error fetching books:", error.response?.data || error.message);
-      }
-    }
+    const key = Object.keys(params)[0]
+    const response = await follower.get('/books/search', { params: { [key]: params[key] } })
+    return { data: { success: true, data: response.data } }
+  } else {
+    const response = await follower.get('/books')
+    return { data: { success: true, data: response.data } }
   }
-  else {
-    try {
-      const response = await follower.get('/books');
-      return { data: { success: true, data: response.data } }
-
-    } catch (err) {
-      if (err.code === 'ECONNABORTED') {
-        console.warn('Follower timed out, falling back to leader...');
-      }
-      // try the leader if followers are down
-      try {
-        const response = await leaderApi.get('/books');
-        return { data: { success: true, data: response.data } }
-      } catch (error) {
-        console.error("Error fetching books:", error.response?.data || error.message);
-      }
-    }
-  }
-
 }
 
 export async function searchBooks(q, type = 'Keyword') {
-
-  const follower = getApi();
-
-  try {
-    let response;
-    if (type === 'id') {
-      response = await follower.get(`/books/${q}`);
-      // make sure the returned data is in array format
-      // if response is a single book object, wrap it in an array
-      return { data: { success: true, data: response.data ? [response.data] : [] } }
-    }
-    else {
-      response = await follower.get('/books/search', {
-        params: { [type.toLowerCase()]: q }
-      });
-      return { data: { success: true, data: response.data } }
-    }
-  } catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.warn('Follower timed out, falling back to leader...');
-    }
-    // try the leader if followers are down
-    try {
-      let response;
-      if (type === 'id') {
-        response = await leaderApi.get(`/books/${q}`);
-        return { data: { success: true, data: response.data ? [response.data] : [] } }
-      }
-      else {
-        response = await leaderApi.get('/books/search', {
-          params: { [type.toLowerCase()]: q }
-        });
-        return { data: { success: true, data: response.data } }
-      }
-    } catch (error) {
-      console.error("Error searching books:", error.response?.data || error.message);
-      return { data: { success: false, data: [] } }
-    }
+  const follower = getApi()
+  if (type === 'id') {
+    const response = await follower.get(`/books/${q}`)
+    return { data: { success: true, data: response.data ? [response.data] : [] } }
+  } else {
+    const response = await follower.get('/books/search', { params: { [type.toLowerCase()]: q } })
+    return { data: { success: true, data: response.data } }
   }
 }
 
 export async function loginUser(identifier) {
-  // try the leader if follower 1 is down
   const response = await leaderApi.post('/books/user/login', { identifier })
   return response.data
 }
@@ -173,35 +112,13 @@ export async function returnBook(userId, bookId) {
 }
 
 export async function getActiveBorrows(userId) {
-
-  const follower = getApi();
-
-  try {
-    return await follower.get(`/borrow/active/${userId}`)
-  }
-  catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.warn('Follower timed out, falling back to leader...');
-    }
-    // try the leader if follower 1 is down
-    return await leaderApi.get(`/borrow/active/${userId}`)
-  }
+  const follower = getApi()
+  return follower.get(`/borrow/active/${userId}`)
 }
 
 export async function getBorrowHistory(userId) {
-
-  const follower = getApi();
-
-  try {
-    return await follower.get(`/borrow/history/${userId}`)
-  }
-  catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.warn('Follower timed out, falling back to leader...');
-    }
-
-    return await leaderApi.get(`/borrow/history/${userId}`)
-  }
+  const follower = getApi()
+  return follower.get(`/borrow/history/${userId}`)
 }
 
 export default leaderApi
