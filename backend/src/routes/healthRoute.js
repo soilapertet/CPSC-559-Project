@@ -1,5 +1,5 @@
 import express from 'express';
-import { config } from '../config/config';
+import { config } from '../config/config.js';
 
 const router = express.Router();
 
@@ -11,3 +11,5 @@ router.get('/', (req, res) => {
         timestamp: new Date().toISOString()                 // track heartbeat's send time
     });
 });
+
+export default router;

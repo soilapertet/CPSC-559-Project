@@ -8,7 +8,7 @@ import userRoutes from './routes/userRoutes.js';
 import booksRoutes from './routes/booksRoutes.js';
 import borrowRoutes from './routes/borrowRoutes.js';
 import replicateRoutes from './routes/replicateRoutes.js';
-import healthRoutes from './routes/healthRoutes.js';
+import healthRoute from './routes/healthRoute.js';
 
 // Create a connection to the MongoDB instance
 connectDB();
@@ -30,7 +30,7 @@ app.use("/borrow", borrowRoutes);
 app.use("/replicate", replicateRoutes);
 
 // Add a health checkpoint for nodes
-app.use("/health", healthRoutes);
+app.use("/health", healthRoute);
 
 app.listen(config.port, () => {
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
