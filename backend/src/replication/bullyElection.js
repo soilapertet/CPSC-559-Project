@@ -67,7 +67,7 @@ async function failureDetector(url) {
     }
 }
 
-// ─── Election Logic ─────────────────────────────────────────────
+// Election Logic 
 export async function initiateElection() {
     if (state.isLeader || state.currentLeaderUrl) return;
     if (state.isRunningElection) return;
@@ -98,7 +98,7 @@ export async function initiateElection() {
 
     state.isRunningElection = false;
 
-    // Safety: retry election if no leader appears
+    // retry election if no leader appears
     setTimeout(async () => {
         if (!state.isLeader && !state.currentLeaderUrl) {
             console.log(`[Election:${myId()}] No leader announced. Re-initiating election.`);
@@ -123,7 +123,7 @@ async function declareLeader() {
     startLeaderHeartbeat();
 }
 
-// ─── Message Handlers ─────────────────────────────────────────────
+// Message Handlers 
 export async function handleElectionMessage(fromId, fromUrl) {
     console.log(`[Election:${myId()}] Received 'election' from node ${fromId}.`);
     if (myId() > fromId) {
@@ -157,7 +157,7 @@ export function handleLeaderMessage(leaderId, leaderUrl) {
     }
 }
 
-// ─── Heartbeats ─────────────────────────────────────────────
+// Heartbeats 
 function startLeaderHeartbeat() {
     stopLeaderHeartbeat();
     console.log(`[Election:${myId()}] Started leader heartbeat monitoring.`);
@@ -186,7 +186,7 @@ function startFollowerHeartbeat() {
     }, HEARTBEAT_INTERVAL_MS);
 }
 
-// ─── Initial Election ─────────────────────────────────────────────
+// Initial Election 
 export async function startInitialElection() {
     const knownNodes = [
         ...config.followers.filter(Boolean),
@@ -234,7 +234,7 @@ export async function startInitialElection() {
     }
 }
 
-// ─── Status ─────────────────────────────────────────────
+// Status 
 export function getElectionState() {
     return {
         myId: myId(),
