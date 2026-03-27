@@ -6,8 +6,8 @@ import { config } from "../config/config.js";
 
 const URLS = config.followers.filter(Boolean);
 
-const HEARTBEAT_INTERVAL = 2000;                                      // ping followers after every 2 seconds
-const TIMEOUT = 1000;                                      // wait for 1 second to receive response from follower
+const HEARTBEAT_INTERVAL = 2000;                            // ping followers after every 2 seconds
+const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
 const BACKOFF_MULTIPLIER = 2;                               // double the timeout period with each attempt
 
@@ -72,7 +72,7 @@ async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
         console.log(`[Leader] Node ${port} is alive.`);
 
     } catch {
-        console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount += 1}.`);
+        console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
 
         // Ping follower again if retry count is less than maximum retries
         if (retryCount < MAX_RETRIES - 1) {
@@ -81,7 +81,7 @@ async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
             await new Promise(resolve => setTimeout(resolve, delay));
 
             // Progressively increase delay time after sending heartbeat signal to follower node
-            return pingFollower(url, retryCount, delay * BACKOFF_MULTIPLIER);
+            return pingFollower(url, retryCount + 1, delay * BACKOFF_MULTIPLIER);
         }
 
         // Maximum retries have been hit -> Follower node is dead
@@ -93,10 +93,14 @@ async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
 // Send heartbeats to all follower nodes
 async function sendHeartbeats() {
-
-    if (config.role !== 'leader') return;
     await Promise.allSettled(URLS.map(url => pingFollower(url)));
 }
 
-// Start heartbeat loop
-setInterval(sendHeartbeats, HEARTBEAT_INTERVAL);
+export async function startLeaderHeartbeat() {
+    
+    // Only send heartbeat if node is a leader
+    if (config.role !== 'leader') return;
+
+    // Start heartbeat loop
+    setInterval(sendHeartbeats, HEARTBEAT_INTERVAL);
+}

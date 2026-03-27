@@ -10,6 +10,11 @@ import borrowRoutes from './routes/borrowRoutes.js';
 import replicateRoutes from './routes/replicateRoutes.js';
 import healthRoute from './routes/healthRoute.js';
 
+import { startLeaderHeartbeat } from "./replication/leader.js";
+import { startFollowerHeartbeat } from "./replication/follower.js";
+
+const HEARTBEAT_DELAY = 5000;
+
 // Create a connection to the MongoDB instance
 connectDB();
 
@@ -33,5 +38,22 @@ app.use("/replicate", replicateRoutes);
 app.use("/health", healthRoute);
 
 app.listen(config.port, () => {
+
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+
+  // Heartbeat logic
+  if (config.role == 'leader') {
+
+    // Wait 5 seconds before sending heartbeat to account for manual setup
+    setTimeout(() => {
+      console.log(`[Leader ${config.port}] Starting heartbeat monitoring...`)
+      startLeaderHeartbeat();
+    }, HEARTBEAT_DELAY);
+  } else {
+    setTimeout(() => {
+      console.log(`[Node ${config.port}] Starting heartbeat monitoring...`)
+      startFollowerHeartbeat();
+    }, HEARTBEAT_DELAY);
+  }
 });
+

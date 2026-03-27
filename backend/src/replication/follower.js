@@ -10,6 +10,13 @@ import Book from '../models/Book.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 
+const leader_url = config.leader.url;                       // leader's URL
+
+const HEARTBEAT_INTERVAL = 2000;                            // ping followers after every 2 seconds
+const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
+const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
+const BACKOFF_MULTIPLIER = 2;                               // double the timeout period with each attempt
+
 export const handleReplicate = async (req, res) => {
 
   const { operation, data, timestamp } = req.body;
@@ -71,3 +78,42 @@ export const handleReplicate = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+async function pingLeader(url, retryCount = 0, delay = TIMEOUT) {
+
+  // Get the port the leader is running on
+  const port = new URL(url).port;
+
+  try {
+    await fetch(`${url}/health`, {
+      signal: AbortSignal.timeout(delay)
+    });
+
+    console.log(`[Node ${config.port}] Leader is alive.`)
+  } catch {
+
+    console.warn(`[Node ${config.port}] Leader did not respond. Attempt: ${retryCount + 1}.`)
+
+    if (retryCount < MAX_RETRIES - 1) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return pingLeader(url, retryCount + 1, delay * BACKOFF_MULTIPLIER);
+    }
+
+    console.warn(`[Node ${config.port}] Leader is dead after ${MAX_RETRIES} attempts.`);
+    // Initiate leader election
+  }
+}
+
+async function sendHeartbeat() {
+  await pingLeader(leader_url);
+}
+
+// Start hearbeat loop
+export async function startFollowerHeartbeat() {
+
+  // Only send heartbeat if node is a follower
+  if (config.role != 'follower') return;
+
+  // Start heartbeat loop
+  setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+}
