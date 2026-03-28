@@ -1,12 +1,9 @@
-// ================== Code Credit: Abdullah Ishtiaq ==================
-
 // Leader broadcasts write operations to all follower nodes (fire-and-forget).
 // Followers apply the same operation to their own databases via POST /replicate.
 import { config } from "../config/config.js";
 
 const URLS = config.followers.filter(Boolean);
 
-const HEARTBEAT_INTERVAL = 2000;                            // ping followers after every 2 seconds
 const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
 const BACKOFF_MULTIPLIER = 2;                               // double the timeout period with each attempt
@@ -14,22 +11,29 @@ const BACKOFF_MULTIPLIER = 2;                               // double the timeou
 // Create a map to keep track of followers' status
 const followerStatus = new Map();
 
-// Initialize all followers' status to alive
-// Set alive to True
-// Number of retries to 0
-URLS.map((url) => {
-    followerStatus.set(url, { alive: true, retries: 0 })
-})
+// Get active followers
+export function getFollowerStatus() {
+    return followerStatus;
+}
 
+// Initialize all followers' status to alive and retries to 0
+export function initializeFollowerStatus() {
+    URLS.map((url) => {
+        followerStatus.set(url, { alive: true, retries: 0 })
+    });
+}
 
 export async function propagateToFollowers(operation, data) {
 
     if (config.role !== 'leader') return;
 
+    // Propagate operations to follower nodes that are alive
+    const activeURLS = URLS.filter(url => followerStatus.get(url)?.alive);
+
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
     const result = await Promise.allSettled(
-        URLS.map((url) => {
+        activeURLS.map((url) => {
             fetch(`${url.trim()}/replicate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,7 +58,7 @@ export async function propagateToFollowers(operation, data) {
 }
 
 // Ping Follower node to check health status
-async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
+export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
     // Extract port number from url
     const port = new URL(url).port;
@@ -69,8 +73,7 @@ async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
         // Mark as alive in status map once follower responds with an 'alive' status
         followerStatus.set(url, { alive: true, retries: 0 });
-        console.log(`[Leader] Node ${port} is alive.`);
-
+        
     } catch {
         console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
 
@@ -92,15 +95,13 @@ async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 }
 
 // Send heartbeats to all follower nodes
-async function sendHeartbeats() {
-    await Promise.allSettled(URLS.map(url => pingFollower(url)));
-}
-
-export async function startLeaderHeartbeat() {
+export async function sendHeartbeats() {
     
-    // Only send heartbeat if node is a leader
-    if (config.role !== 'leader') return;
+    // Get the current follower nodes
+    const followers = URLS.filter(url => {
+        const port = new URL(url).port;
+        return port != String(config.port);             
+    });
 
-    // Start heartbeat loop
-    setInterval(sendHeartbeats, HEARTBEAT_INTERVAL);
+    await Promise.allSettled(followers.map(url => pingFollower(url)));
 }

@@ -1,5 +1,6 @@
 // Bully Leader Election Algorithm
 import { config } from '../config/config.js';
+import { initializeFollowerStatus, sendHeartbeats } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 5000;
@@ -160,6 +161,8 @@ export function handleLeaderMessage(leaderId, leaderUrl) {
 // Heartbeats 
 function startLeaderHeartbeat() {
     stopLeaderHeartbeat();
+    initializeFollowerStatus();                                                         // initialise map to keep track of followers' status   
+    state.heartbeatTimer = setInterval(sendHeartbeats, HEARTBEAT_INTERVAL_MS);          // send heartbeat signals to follower nodes
     console.log(`[Election:${myId()}] Started leader heartbeat monitoring.`);
 }
 

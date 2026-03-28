@@ -16,5 +16,11 @@ export const config = {
         process.env.FOLLOWER3_URL,
         process.env.FOLLOWER4_URL,
     ],
-    mongo_uri: process.env.MONGODB_URI
+    
+    mongo_uri: process.env.MONGODB_URI,
+
+    // Get the current leader from the terminal after leader election algorithm
+    get leaderUrl() {
+        return process.env.LEADER_URL
+    }
 };
