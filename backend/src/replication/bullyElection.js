@@ -1,9 +1,10 @@
 // Bully Leader Election Algorithm
 import { config } from '../config/config.js';
-import { initializeFollowerStatus, sendHeartbeats } from './leader.js';
+import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 5000;
+const MAX_RETRIES = 3;
 
 const state = {
     currentLeaderUrl: null,
@@ -29,14 +30,27 @@ function getAllNodes() {
     ];
     const unique = [...new Set(urls.filter(Boolean).map(u => u.trim()))];
     return unique.map(url => ({ url, id: parseInt(new URL(url).port, 10) }))
-                 .sort((a, b) => a.id - b.id);
+        .sort((a, b) => a.id - b.id);
 }
 
 function higherNodes() {
     return getAllNodes().filter(n => n.id > myId());
 }
+
 function lowerNodes() {
     return getAllNodes().filter(n => n.id < myId());
+}
+
+// Logic to remove dead leader from node list
+function handleDeadLeader(deadUrl) {
+
+    // Update status of previous leader to dead -> alive: false
+    getFollowerStatus().set(deadUrl, { alive: false, retries: MAX_RETRIES });
+
+    // Remove dead old leader from followers list
+    config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
+    console.log(`[Election:${myId()}] Removed dead leader ${deadUrl} from node list.`);
+    // notifyFrontend(deadUrl)
 }
 
 async function sendMessage(url, type, payload = {}) {
@@ -117,6 +131,7 @@ async function declareLeader() {
 
     console.log(`[Election:${myId()}] Broadcasting 'leader' to all nodes.`);
     const others = getAllNodes().filter(n => n.id !== myId());
+
     await Promise.allSettled(
         others.map(n => sendMessage(n.url, 'leader', { leaderUrl: myUrl(), leaderId: myId() }))
     );
@@ -162,7 +177,7 @@ export function handleLeaderMessage(leaderId, leaderUrl) {
 function startLeaderHeartbeat() {
     stopLeaderHeartbeat();
     initializeFollowerStatus();                                                         // initialise map to keep track of followers' status   
-    state.heartbeatTimer = setInterval(sendHeartbeats, HEARTBEAT_INTERVAL_MS);          // send heartbeat signals to follower nodes
+    state.heartbeatTimer = setInterval(sendHeartbeats, HEARTBEAT_INTERVAL_MS);          // monitor follower nodes
     console.log(`[Election:${myId()}] Started leader heartbeat monitoring.`);
 }
 
@@ -182,6 +197,7 @@ function startFollowerHeartbeat() {
         const crashed = await failureDetector(leaderUrl);
         if (crashed) {
             console.log(`[Election:${myId()}] Leader at ${leaderUrl} appears crashed!`);
+            handleDeadLeader(leaderUrl);
             state.currentLeaderUrl = null;
             stopLeaderHeartbeat();
             await initiateElection();

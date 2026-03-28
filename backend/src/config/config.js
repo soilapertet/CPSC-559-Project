@@ -21,6 +21,6 @@ export const config = {
 
     // Get the current leader from the terminal after leader election algorithm
     get leaderUrl() {
-        return process.env.LEADER_URL
-    }
+        return process.env.LEADER_URL;
+    },
 };

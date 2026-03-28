@@ -2,8 +2,6 @@
 // Followers apply the same operation to their own databases via POST /replicate.
 import { config } from "../config/config.js";
 
-const URLS = config.followers.filter(Boolean);
-
 const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
 const BACKOFF_MULTIPLIER = 2;                               // double the timeout period with each attempt
@@ -18,9 +16,23 @@ export function getFollowerStatus() {
 
 // Initialize all followers' status to alive and retries to 0
 export function initializeFollowerStatus() {
-    URLS.map((url) => {
+    config.followers.map((url) => {
         followerStatus.set(url, { alive: true, retries: 0 })
     });
+}
+
+// Logic to remove dead follower from node list
+function handleDeadFollower(deadUrl, port) {
+    
+    // Mark follower node as dead
+    followerStatus.set(deadUrl, { alive: false, retries: MAX_RETRIES });
+    console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
+
+    // Remove dead follower node from nodes list
+    config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
+    console.error(`[Leader] Removed dead follower ${port} from node list.`);
+    // notifyFrontend(deadUrl);
+
 }
 
 export async function propagateToFollowers(operation, data) {
@@ -28,7 +40,7 @@ export async function propagateToFollowers(operation, data) {
     if (config.role !== 'leader') return;
 
     // Propagate operations to follower nodes that are alive
-    const activeURLS = URLS.filter(url => followerStatus.get(url)?.alive);
+    const activeURLS = config.followers.filter(url => followerStatus.get(url)?.alive);
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
@@ -73,7 +85,7 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
         // Mark as alive in status map once follower responds with an 'alive' status
         followerStatus.set(url, { alive: true, retries: 0 });
-        
+        console.warn(`[Leader] Node ${port} is alive.`);
     } catch {
         console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
 
@@ -88,9 +100,7 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
         }
 
         // Maximum retries have been hit -> Follower node is dead
-        followerStatus.set(url, { alive: false, retries: retryCount });
-        console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
-
+        handleDeadFollower(url, port);
     }
 }
 
@@ -98,10 +108,11 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 export async function sendHeartbeats() {
     
     // Get the current follower nodes
-    const followers = URLS.filter(url => {
+    const followers = config.followers.filter(url => {
         const port = new URL(url).port;
-        return port != String(config.port);             
+        return port != String(config.port);
     });
 
-    await Promise.allSettled(followers.map(url => pingFollower(url)));
+    const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
+    await Promise.allSettled(activeURLS.map(url => pingFollower(url)));
 }
