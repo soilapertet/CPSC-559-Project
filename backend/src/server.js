@@ -9,6 +9,7 @@ import booksRoutes from './routes/booksRoutes.js';
 import borrowRoutes from './routes/borrowRoutes.js';
 import replicateRoutes from './routes/replicateRoutes.js';
 import healthRoute from './routes/healthRoute.js';
+import eventRoute from './routes/eventRoute.js';
 
 import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
@@ -37,6 +38,9 @@ app.use("/health", healthRoute);
 
 // Add a endpoint to leader election algorithm
 app.use("/election", electionRoutes);
+
+// Add an endpoint for frontend to receive real-time updates
+app.use("/events", eventRoute);
 
 app.listen(config.port, () => {
 

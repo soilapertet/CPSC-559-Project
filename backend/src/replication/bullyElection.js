@@ -1,5 +1,6 @@
 // Bully Leader Election Algorithm
 import { config } from '../config/config.js';
+import { notifyFrontend } from '../routes/eventRoute.js';
 import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
@@ -50,7 +51,14 @@ function handleDeadLeader(deadUrl) {
     // Remove dead old leader from followers list
     config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
     console.log(`[Election:${myId()}] Removed dead leader ${deadUrl} from node list.`);
-    // notifyFrontend(deadUrl)
+
+    // Notify frontend of dead leader to remove from node pool
+    // Named event: leader-dead
+    // Pass dead leader url to frontend
+    notifyFrontend({
+        type: 'leader-dead',
+        url: deadUrl,
+    })
 }
 
 async function sendMessage(url, type, payload = {}) {
@@ -135,6 +143,14 @@ async function declareLeader() {
     await Promise.allSettled(
         others.map(n => sendMessage(n.url, 'leader', { leaderUrl: myUrl(), leaderId: myId() }))
     );
+
+    // Notify frontned of the new leader
+    // Named event: new-leader
+    // Pass new leader url to frontend
+    notifyFrontend({
+        type: 'new-leader',
+        url : myUrl(),
+    });
 
     startLeaderHeartbeat();
 }

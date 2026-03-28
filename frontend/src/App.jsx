@@ -4,7 +4,7 @@ import Navbar from './components/Navbar'
 import HomePage from './pages/HomePage'
 import MyBooksPage from './pages/MyBooksPage'
 import ReconnectingBanner from './components/ReconnectingBanner'
-import { setLeaderUrl, getLeaderUrl, removeFollower, ALL_NODE_URLS } from './api/libraryApi'
+import { setLeaderUrl, removeFollower, ALL_NODE_URLS } from './api/libraryApi'
 
 export default function App() {
   const [reconnecting, setReconnecting] = useState(false)
@@ -18,8 +18,14 @@ export default function App() {
     pollRef.current = setInterval(async () => {
       for (const url of ALL_NODE_URLS) {
         try {
-          const res = await fetch(`${url}health`, { signal: AbortSignal.timeout(2000) })
-          const data = await res.json()
+          // Pings /health endpoint to check for node information
+          const res = await fetch(`${url}health`, { signal: AbortSignal.timeout(2000) });
+          const data = await res.json();
+
+          // Checks if node is a leader
+          // Sets leader url
+          // Removes 'Reconnecting' banner
+          // Opens connection stream to leader node to listens for updates from backend
           if (data.role === 'leader') {
             setLeaderUrl(url)
             setReconnecting(false)
@@ -38,12 +44,14 @@ export default function App() {
     const es = new EventSource(`${leaderUrl}events`)
     sseRef.current = es
 
+    // Listens for follower-dead event from the backend
     es.addEventListener('follower-dead', e => {
       const { url } = JSON.parse(e.data)
       removeFollower(url)
       console.log(`[SSE] Follower removed from pool: ${url}`)
     })
 
+    // Listens for new-leader event from the backend
     es.addEventListener('new-leader', e => {
       const { url } = JSON.parse(e.data)
       setLeaderUrl(url)
@@ -55,17 +63,54 @@ export default function App() {
     es.onerror = () => {
       es.close()
       setReconnecting(true)
+
+      // Remove leader node from node pool
+      const deadLeaderUrl = leaderUrl;
+      removeFollower(deadLeaderUrl);  
+      console.log(`[SSE] Leader removed from pool: ${deadLeaderUrl}`)
+
       console.warn('[SSE] Leader connection lost — starting election poll...')
       pollForNewLeader()
     }
   }
 
+  // Discover leader firs, then connect SSE
   useEffect(() => {
-    connectSSE(getLeaderUrl())
+    async function init() {
+      // Poll all nodes to find current leader
+      for (const url of ALL_NODE_URLS) {
+        try {
+          // Pings the /health endpoint to check the status of the node
+          const res = await fetch(`${url}health`, {
+            signal: AbortSignal.timeout(2000)
+          });
+
+          // Gets information about the node linked to the current url
+          const data = await res.json();
+
+          // Checks if it's a leader; if yes, it sets the Leader Url to the current url
+          // Opens a connection to leader node to receive updates from backend
+          if (data.role === 'leader') {
+            setLeaderUrl(url);
+            connectSSE(url.endsWith('/') ? url : url + '/')
+            return
+          }
+        } catch { /* node unreachable, try next node*/ }
+      }
+
+      // No leader found on startup - start polling for new leader
+      // connectSSE(getLeaderUrl())
+      setReconnecting(true);
+      pollForNewLeader();
+    }
+
+    init();
+
     return () => {
       sseRef.current?.close()
       if (pollRef.current) clearInterval(pollRef.current)
     }
+
   }, [])
 
   return (

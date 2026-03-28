@@ -1,6 +1,7 @@
 // Leader broadcasts write operations to all follower nodes (fire-and-forget).
 // Followers apply the same operation to their own databases via POST /replicate.
 import { config } from "../config/config.js";
+import { notifyFrontend } from "../routes/eventRoute.js";
 
 const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
@@ -23,7 +24,7 @@ export function initializeFollowerStatus() {
 
 // Logic to remove dead follower from node list
 function handleDeadFollower(deadUrl, port) {
-    
+
     // Mark follower node as dead
     followerStatus.set(deadUrl, { alive: false, retries: MAX_RETRIES });
     console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
@@ -31,7 +32,14 @@ function handleDeadFollower(deadUrl, port) {
     // Remove dead follower node from nodes list
     config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
     console.error(`[Leader] Removed dead follower ${port} from node list.`);
-    // notifyFrontend(deadUrl);
+
+    // Notify frontend of dead follower
+    // Named event: follower-dead
+    // Pass url of dead follower
+    notifyFrontend({
+        type: 'follower-dead',
+        url: deadUrl,
+    });
 
 }
 
@@ -39,8 +47,14 @@ export async function propagateToFollowers(operation, data) {
 
     if (config.role !== 'leader') return;
 
-    // Propagate operations to follower nodes that are alive
-    const activeURLS = config.followers.filter(url => followerStatus.get(url)?.alive);
+    // Get the current follower nodes
+    const followers = config.followers.filter(url => {
+        const port = new URL(url).port;
+        return port != String(config.port);
+    });
+
+    // Get the active follower nodes
+    const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
@@ -85,7 +99,7 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
         // Mark as alive in status map once follower responds with an 'alive' status
         followerStatus.set(url, { alive: true, retries: 0 });
-        console.warn(`[Leader] Node ${port} is alive.`);
+
     } catch {
         console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
 
@@ -106,7 +120,7 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
 // Send heartbeats to all follower nodes
 export async function sendHeartbeats() {
-    
+
     // Get the current follower nodes
     const followers = config.followers.filter(url => {
         const port = new URL(url).port;

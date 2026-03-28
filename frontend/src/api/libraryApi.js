@@ -6,36 +6,42 @@ export const ALL_NODE_URLS = [
   'http://localhost:3002/',
   'http://localhost:3003/',
   'http://localhost:3004/',
-  'http://localhost:3005',
+  'http://localhost:3005/'
 ]
 
 const leaderApi = axios.create({
+  baseURL: '',
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 10000,
+});
+
+const node0Api = axios.create({
   baseURL: 'http://localhost:3001/',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
-const follower1Api = axios.create({
+const node1Api = axios.create({
   baseURL: 'http://localhost:3002/',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
-const follower2Api = axios.create({
+const node2Api = axios.create({
   baseURL: 'http://localhost:3003/',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 // Create an axios instance for follower 3 - read operations are directed to follower 3
-const follower3Api = axios.create({
+const node3Api = axios.create({
   baseURL: 'http://localhost:3004/',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 // Create an axios instance for follower 4 - read operations are directed to follower 4
-const follower4Api = axios.create({
+const node4Api = axios.create({
   baseURL: import.meta.env.FOLLOWER4_URL || 'http://localhost:3005/',
   headers: {
     'Content-Type': 'application/json'
@@ -44,7 +50,7 @@ const follower4Api = axios.create({
 })
 
 // Distribute read requests evenly between follower nodes (Load balancing)
-const apis = [follower1Api, follower2Api, follower3Api, follower4Api];
+const apis = [node0Api, node1Api, node2Api, node3Api, node4Api];
 let index = 0;
 
 function getApi() {
