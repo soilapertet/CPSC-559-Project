@@ -6,6 +6,7 @@ export const ALL_NODE_URLS = [
   'http://localhost:3002/',
   'http://localhost:3003/',
   'http://localhost:3004/',
+  'http://localhost:3005/',
 ]
 
 const leaderApi = axios.create({
@@ -32,8 +33,14 @@ const follower3Api = axios.create({
   timeout: 10000,
 })
 
+const follower4Api = axios.create({
+  baseURL: 'http://localhost:3005/',
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 10000,
+})
+
 // Distribute read requests evenly between follower nodes (round-robin load balancing)
-const apis = [follower1Api, follower2Api, follower3Api]
+const apis = [follower1Api, follower2Api, follower3Api, follower4Api]
 let index = 0
 
 function getApi() {
