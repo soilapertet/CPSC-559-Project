@@ -79,6 +79,8 @@ http://localhost:3001
 ```
 npm run follower1
 npm run follower2
+npm run follower3
+npm run follower4
 ```
 
 Run on
@@ -86,6 +88,8 @@ Run on
 ```
 http://localhost:3002
 http://localhost:3003
+http://localhost:3004
+http://localhost:3005
 ```
 
 # Health check endpoint:
