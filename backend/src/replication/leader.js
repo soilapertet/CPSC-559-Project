@@ -40,7 +40,7 @@ export async function logOperation(operation, data) {
     // Increment the sequence number
     seq++;
     console.log(`Current sequence number: ${seq}`);
-    
+
     try {
         // Create and save a new operation log entry to db
         await OperationLog.create({
@@ -50,11 +50,11 @@ export async function logOperation(operation, data) {
         });
 
         return seq;
-        
-    } catch(err) {
+
+    } catch (err) {
         console.log(`Error occured while logging ${operation} operation: ${err}`);
     }
-    
+
 };
 
 // Initialize all followers' status to alive and retries to 0
@@ -72,10 +72,6 @@ function handleDeadFollower(deadUrl, port) {
     followerStatus.set(deadUrl, { alive: false, retries: MAX_RETRIES });
     console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
 
-    // Remove dead follower node from nodes list
-    config.nodes = config.nodes.filter(Boolean).filter(url => url != deadUrl);
-    console.error(`[Leader] Removed dead follower ${port} from node list.`);
-
     // Notify frontend of dead follower
     // Named event: follower-dead
     // Pass url of dead follower
@@ -83,6 +79,34 @@ function handleDeadFollower(deadUrl, port) {
         type: 'follower-dead',
         url: deadUrl,
     });
+
+}
+
+async function handleRecoveredNode(recoveredUrl) {
+
+    try {
+        const res = await fetch(`${recoveredUrl}/sync/sync-request`, {
+            method: 'POST',
+            headers: {
+                'Content-type': 'application/json'
+            }
+        });
+
+        if (!res.ok) {
+            throw new Error(`[RECOVERED NODE ${config.port}] Sync request failed: ${res.status}.`);
+        }
+
+        // Notify frontend of recovered follower
+        // Named event: follower-recovered
+        // Pass url of recovered node
+        notifyFrontend({
+            type: 'follower-recovered',
+            url: recoveredUrl,
+        });
+
+    } catch (err) {
+        console.error(`[Leader] Failed to sync ${recoveredUrl}: ${err.message}`);
+    }
 
 }
 
@@ -141,6 +165,9 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
     // Extract port number from url
     const port = new URL(url).port;
 
+    // Get node's current status
+    const prev = followerStatus.get(url);
+
     try {
 
         // Check health endpoint of follower node
@@ -151,6 +178,12 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 
         // Mark as alive in status map once follower responds with an 'alive' status
         followerStatus.set(url, { alive: true, retries: 0 });
+
+        // Check if ping came from a dead node that has recovered after a crash
+        if (prev && prev.alive === false) {
+            console.log(`[Leader] Node ${port} RECOVERED. Triggering syncing.`);
+            await handleRecoveredNode(url);
+        }
 
     } catch {
         console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
@@ -170,7 +203,8 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
     }
 }
 
-// Send heartbeats to all follower nodes
+// Send heartbeats to all follower nodes (dead and alive nodes)
+// Allows us to apply node recovery logic
 export async function sendHeartbeats() {
 
     // Get the current follower nodes
@@ -179,6 +213,5 @@ export async function sendHeartbeats() {
         return port != String(config.port);
     });
 
-    const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
     await Promise.allSettled(activeURLS.map(url => pingFollower(url)));
 }

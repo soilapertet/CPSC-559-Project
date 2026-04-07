@@ -37,19 +37,13 @@ function higherNodes() {
     return getAllNodes().filter(n => n.id > myId());
 }
 
-function lowerNodes() {
-    return getAllNodes().filter(n => n.id < myId());
-}
-
 // Logic to remove dead leader from node list
 function handleDeadLeader(deadUrl) {
 
     // Update status of previous leader to dead -> alive: false
     getFollowerStatus().set(deadUrl, { alive: false, retries: MAX_RETRIES });
 
-    // Remove dead old leader from followers list
-    config.nodes = config.nodes.filter(Boolean).filter(url => url != deadUrl);
-    console.log(`[Election:${myId()}] Removed dead leader ${deadUrl} from node list.`);
+    console.log(`[Election:${myId()}] Notifying frontend of dead leader.`);
 
     // Notify frontend of dead leader to remove from node pool
     // Named event: leader-dead

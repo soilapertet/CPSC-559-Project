@@ -150,33 +150,52 @@ export const handleReplicate = async (req, res) => {
 
 export const syncFromLeader = async (leaderUrl) => {
 
-  // Get the last applied operation log
-  const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
-
-  // Get the last applied sequence number (default to 0)
-  lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
-
-  // Fetch missed operations from current leader
-  const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
-
-  if(!res.ok) {
-    throw new Error(`Sync failed: ${res.status}`);
+  // Check if node is currently syncing
+  if (isSyncing) {
+    console.log(`[Recovered Node ${config.port}] Currently syncing, skipping request.`);
+    return;
   }
 
-  const response = await res.json();
-  const missedLogs = response.data || [];
+  // Set isSyncing flag to true
+  isSyncing = true;
 
-  for (const log of missedLogs) {
-    // Apply each missed operation
-    try {
+  try {
 
-      console.log(`[Follower:${config.port} Applying seq: ${log.seq}]`);
-      await applyOperation(log.operation, log.data, log.seq);
-      console.log(`[Follower: ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
+    // Get the last applied operation log
+    const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
 
-    } catch (err) {
-      throw new Error(`Error occured while applying seq ${seq}: ${err}`);
+    // Get the last applied sequence number (default to 0)
+    lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
+    // Fetch missed operations from current leader
+    const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
+
+    if (!res.ok) {
+      throw new Error(`Error occured while fetching missed logs from Leader ${leaderUrl}: ${res.status}`);
     }
+
+    const response = await res.json();
+    const missedLogs = response.data || [];
+
+    for (const log of missedLogs) {
+
+      // Apply each missed operation
+      try {
+
+        console.log(`[Recovered Node ${config.port} Applying seq: ${log.seq}]`);
+        await applyOperation(log.operation, log.data, log.seq);
+        console.log(`Recovered Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
+
+      } catch (err) {
+        throw new Error(`Error occured while applying seq ${seq}: ${err}`);
+      }
+    }
+  } catch (err) {
+    console.error(`[Recovered Node ${config.port}] Sync failed: ${err.message}`);
+    throw err;
+  } finally {
+    isSyncing(false);
   }
+
 
 }

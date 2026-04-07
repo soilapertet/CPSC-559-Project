@@ -4,7 +4,7 @@ import Navbar from './components/Navbar'
 import HomePage from './pages/HomePage'
 import MyBooksPage from './pages/MyBooksPage'
 import ReconnectingBanner from './components/ReconnectingBanner'
-import { setLeaderUrl, removeFollower, ALL_NODE_URLS } from './api/libraryApi'
+import { setLeaderUrl, removeFollower, addFollower, ALL_NODE_URLS } from './api/libraryApi'
 
 export default function App() {
   const [reconnecting, setReconnecting] = useState(false)
@@ -49,6 +49,13 @@ export default function App() {
       const { url } = JSON.parse(e.data)
       removeFollower(url)
       console.log(`[SSE] Follower removed from pool: ${url}`)
+    })
+
+    // Listens for follower-recovered event from the backend
+    es.addEventListener('follower-recovered', e => {
+      const { url } = JSON.parse(e.data)
+      addFollower(url)
+      console.log(`[SSE] Follower added to pool: ${url}`)
     })
 
     // Listens for new-leader event from the backend

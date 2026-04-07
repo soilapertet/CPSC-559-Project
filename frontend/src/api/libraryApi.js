@@ -9,50 +9,37 @@ export const ALL_NODE_URLS = [
   'http://localhost:3005'
 ]
 
+// Generate a dynamic dictionary where key = URL and value = axios instance
+export const NODE_URL_MAPPING = Object.fromEntries(
+  
+  // Create an array such that [url, axiosInstance]
+  // Create an object from this array to map urls to their axios instances
+  ALL_NODE_URLS.map(url => [
+    url,
+    axios.create({
+      baseUrl: url,
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    })
+  ])
+);
+
 const leaderApi = axios.create({
   baseURL: '',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 });
 
-const node0Api = axios.create({
-  baseURL: 'http://localhost:3001',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-const node1Api = axios.create({
-  baseURL: 'http://localhost:3002',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-const node2Api = axios.create({
-  baseURL: 'http://localhost:3003',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-// Create an axios instance for follower 3 - read operations are directed to follower 3
-const node3Api = axios.create({
-  baseURL: 'http://localhost:3004',
-  headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
-})
-
-// Create an axios instance for follower 4 - read operations are directed to follower 4
-const node4Api = axios.create({
-  baseURL: 'http://localhost:3005',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  timeout: 10000,
-})
-
-// Distribute read requests evenly between follower nodes (Load balancing)
-const apis = [node0Api, node1Api, node2Api, node3Api, node4Api];
+// Access all axios instances from NODE_URL_MAPPING object
+const apis = Object.values(NODE_URL_MAPPING); 
 let index = 0;
 
+// Normalize URLs to minimise future errors
+function normalizeUrl(url) {
+  return url.endsWith('/') ? url.slice(0, -1) : url
+}
+
+// Distribute read requests evenly between follower nodes (Load balancing)
 function getApi() {
   if (apis.length === 0) return leaderApi  // all followers dead — fall back to leader
   return apis[index++ % apis.length]
@@ -61,18 +48,35 @@ function getApi() {
 // ─── Dynamic leader/follower management (called by SSE event handler in App.jsx) ─
 
 export function setLeaderUrl(url) {
-  const base = url.endsWith('/') ? url.slice(0, -1) : url;
+  const base = normalizeUrl(url);
   leaderApi.defaults.baseURL = base
 }
 
 export function getLeaderUrl() {
-  return leaderApi.defaults.baseURL
+  return leaderApi.defaults.baseURL;
 }
 
 export function removeFollower(url) {
-  const base = url.endsWith('/') ? url.slice(0, -1) : url;
-  const i = apis.findIndex(a => a.defaults.baseURL === base)
-  if (i !== -1) apis.splice(i, 1)
+  const base = normalizeUrl(url);
+  apis = apis.filter(api => api.defaults.baseURL !== base);
+}
+
+export function addFollower(url) {
+  const base = normalizeUrl(url);
+  const api = NODE_URL_MAPPING[base];
+  
+  if(!api) {
+    console.warn(`No API instance found for ${base}`);
+    return;
+  }
+
+  // Check for duplication
+  const exists = apis.some(api => api.defaults.baseURL === base);
+  if(exists) return
+
+  // Add back api instance after recovery
+  apis.push(api);
+  console.log(`[Frontend] Follower added back: ${base}`);
 }
 
 // ─── API functions ────────────────────────────────────────────────────────────
