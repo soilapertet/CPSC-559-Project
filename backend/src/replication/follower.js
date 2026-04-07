@@ -152,7 +152,7 @@ export const syncFromLeader = async (leaderUrl) => {
 
   // Check if node is currently syncing
   if (isSyncing) {
-    console.log(`[Recovered Node ${config.port}] Currently syncing, skipping request.`);
+    console.log(`[Syncing Node ${config.port}] Currently syncing, skipping request.`);
     return;
   }
 
@@ -182,20 +182,18 @@ export const syncFromLeader = async (leaderUrl) => {
       // Apply each missed operation
       try {
 
-        console.log(`[Recovered Node ${config.port} Applying seq: ${log.seq}]`);
+        console.log(`[Syncing Node ${config.port} Applying seq: ${log.seq}]`);
         await applyOperation(log.operation, log.data, log.seq);
-        console.log(`Recovered Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
+        console.log(`Syncing Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
 
       } catch (err) {
         throw new Error(`Error occured while applying seq ${seq}: ${err}`);
       }
     }
   } catch (err) {
-    console.error(`[Recovered Node ${config.port}] Sync failed: ${err.message}`);
+    console.error(`[Syncing Node ${config.port}] Sync failed: ${err.message}`);
     throw err;
   } finally {
     isSyncing(false);
   }
-
-
 }

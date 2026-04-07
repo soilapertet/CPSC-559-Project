@@ -1,11 +1,16 @@
 // Bully Leader Election Algorithm
 import { config } from '../config/config.js';
+import OperationLog from '../models/OperationLog.js';
 import { notifyFrontend } from '../routes/eventRoute.js';
+import { syncFromLeader } from './follower.js';
 import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 5000;
 const MAX_RETRIES = 3;
+
+let leaderLog = null;
+let leaderSeq = 0;
 
 const state = {
     currentLeaderUrl: null,
@@ -134,11 +139,19 @@ async function declareLeader() {
     state.isRunningElection = false;
     config.role = 'leader';
 
+    // Get the current log entry for new leader
+    leaderLog = await OperationLog.findOne().sort({ seq: -1 });
+    leaderSeq = leaderLog ? leaderLog.seq : 0;
+
     console.log(`[Election:${myId()}] Broadcasting 'leader' to all nodes.`);
     const others = getAllNodes().filter(n => n.id !== myId());
 
     await Promise.allSettled(
-        others.map(n => sendMessage(n.url, 'leader', { leaderUrl: myUrl(), leaderId: myId() }))
+        others.map(n => sendMessage(n.url, 'leader', {
+            leaderUrl: myUrl(),
+            leaderId: myId(),
+            leaderSeq : leaderSeq,
+        }))
     );
 
     // Notify frontned of the new leader
@@ -168,8 +181,10 @@ export function handleBullyMessage(fromId) {
     state.isRunningElection = false;
 }
 
-export function handleLeaderMessage(leaderId, leaderUrl) {
-    console.log(`[Election:${myId()}] Received 'leader' announcement: node ${leaderId} (${leaderUrl}).`);
+export async function handleLeaderMessage(leaderId, leaderUrl, leaderSeq) {
+
+    console.log(`[Election:${myId()}] Received 'leader' announcement: Node ${leaderId} (${leaderUrl}). Current Seq ${leaderSeq}`);
+
     state.currentLeaderUrl = leaderUrl;
     state.receivedBully = false;
     state.isRunningElection = false;
@@ -183,6 +198,21 @@ export function handleLeaderMessage(leaderId, leaderUrl) {
         config.role = 'follower';
         stopLeaderHeartbeat();
         startFollowerHeartbeat();
+    }
+
+    const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
+    const lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
+    // Start syncing process with current leader if node is behind on logs
+    if(!state.isLeader && lastAppliedSeq < leaderSeq) {
+        
+        console.log(`[Follower ${myUrl()}] Syncing logs after leader election. Syncing seq  ${leaderSeq}.`)
+        
+        try {
+            await syncFromLeader(leaderUrl);
+        } catch (err) {
+            console.error(`[Follower ${myUrl()}] Failed to sync ${myUrl()}: ${err.message}`);
+        }
     }
 }
 
@@ -220,7 +250,7 @@ function startFollowerHeartbeat() {
 
 // Initial Election 
 export async function startInitialElection() {
-    
+
     const knownNodes = config.nodes.filter(Boolean);
 
     let foundLeader = false;

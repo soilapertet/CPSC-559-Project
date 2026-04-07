@@ -47,9 +47,9 @@ router.post('/bully', (req, res) => {
 
 
 // Leader Message: Broadcast by the winner to announce the new leader to all other processes.
-router.post('/leader', (req, res) => {
-    const { leaderId, leaderUrl } = req.body;
-    handleLeaderMessage(leaderId, leaderUrl);
+router.post('/leader', async (req, res) => {
+    const { leaderId, leaderUrl, leaderSeq } = req.body;
+    await handleLeaderMessage(leaderId, leaderUrl, leaderSeq);
     res.status(200).json({ received: true });
 });
 

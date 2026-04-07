@@ -6,7 +6,7 @@ import { getLeaderUrl } from '../replication/bullyElection.js';
 
 const router = express.Router();
 
-// (RECOVERED NODE) Trigger sycning process to recover missed operations during crash
+// (FOLLOWER NODE) Trigger sycning process to recover missed operations 
 router.post('/sync-request', async (req, res) => {
 
     try {
@@ -18,9 +18,9 @@ router.post('/sync-request', async (req, res) => {
             })
         }
 
-        console.log(`[Recovered Node ${config.port}] Syncing with current leader ${leaderUrl}.`)
+        console.log(`[Syncing Node ${config.port}] Syncing with current leader ${leaderUrl}.`)
         await syncFromLeader(leaderUrl);
-        console.log(`[Follower ${config.port}] Successfully synced with current leader ${leaderUrl}.`);
+        console.log(`[Synced Node ${config.port}] Successfully synced with current leader ${leaderUrl}.`);
 
         res.status(200).json({
             message : 'Sync complete.'
