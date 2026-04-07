@@ -22,27 +22,39 @@ export function getFollowerStatus() {
 }
 
 // Read last sequence number stored in DB  on startup
-export async function initializeSeq ()  {
+export async function initializeSeq() {
 
     // Get the latest write operation log added to db
-    const lastLog = await OperationLog.findOne().sort({ seq : -1 });
+    const lastLog = await OperationLog.findOne().sort({ seq: -1 });
 
     // Update last sequence number accordingly
     seq = lastLog ? lastLog.seq : 0;
+    console.log(`Last sequence number : ${seq}`);
 
     return seq;
 }
 
 // Create a new log entry and save it to the db
-export async function logOperation (operation, data) {
+export async function logOperation(operation, data) {
 
-    // Create and save a new operation log entry to db
-    await OperationLog.create ({
-        seq,
-        operation,
-        data,
-    });
+    // Increment the sequence number
+    seq++;
+    console.log(`Current sequence number: ${seq}`);
+    
+    try {
+        // Create and save a new operation log entry to db
+        await OperationLog.create({
+            seq,
+            operation,
+            data,
+        });
 
+        return seq;
+        
+    } catch(err) {
+        console.log(`Error occured while logging ${operation} operation: ${err}`);
+    }
+    
 };
 
 // Initialize all followers' status to alive and retries to 0
@@ -88,7 +100,7 @@ export async function propagateToFollowers(operation, data) {
     const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
     //  Log write operation to local db before propagating to followers 
-    await logOperation(operation, data);
+    const seq = await logOperation(operation, data);
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
@@ -120,7 +132,7 @@ export async function propagateToFollowers(operation, data) {
     if (successCount < W) {
         throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
-    
+
 }
 
 // Ping Follower node to check health status

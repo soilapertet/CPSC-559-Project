@@ -16,6 +16,7 @@ let pendingQueue = [];
 
 const executeOperation = async (operation, seq, data) => {
   if (operation === 'createUser') {
+
     // Create user with the same _id as the leader so userId references stay consistent
     await User.create({
       _id: data._id,
@@ -25,8 +26,16 @@ const executeOperation = async (operation, seq, data) => {
       email: data.email
     });
 
+    // Create and save a new operation log entry to db
+    await OperationLog.create({
+      seq,
+      operation,
+      data,
+    });
+
     console.log(`[Follower:${config.port}] Applied seq ${seq}: createUser (${data.userName})`);
-  } 
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+  }
 
   else if (operation === 'borrow') {
     // Decrement availableCopies on this node's book
@@ -40,7 +49,17 @@ const executeOperation = async (operation, seq, data) => {
       status: 'borrowed',
       dueDate: new Date(data.dueDate)
     });
+
+    // Create and save a new operation log entry to db
+    await OperationLog.create({
+      seq,
+      operation,
+      data,
+    });
+
     console.log(`[Follower:${config.port}] Applied seq ${seq}: borrow (book ${data.bookId})`);
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+
   }
 
   else if (operation === 'return') {
@@ -52,7 +71,17 @@ const executeOperation = async (operation, seq, data) => {
 
     // Increment availableCopies on this node's book
     await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: 1 } });
+
+    // Create and save a new operation log entry to db
+    await OperationLog.create({
+      seq,
+      operation,
+      data,
+    });
+
     console.log(`[Follower:${config.port}] Applied seq ${seq}: return (book ${data.bookId})`);
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+
   }
 
   else {
@@ -67,7 +96,7 @@ const applyOperation = async (operation, data, seq) => {
     console.warn(`[Follower:${config.port}] Duplicate detected. Ignoring seq: ${seq}`);
     return;
   }
-  
+
   // Check if operation wasn't applied, add to queue and sort by sequence number
   if (seq > lastAppliedSeq + 1) {
     console.log(`[Follower:${config.port}] Gap detected. Queuing seq: ${seq}`);
@@ -83,7 +112,7 @@ const applyOperation = async (operation, data, seq) => {
     lastAppliedSeq = seq;
 
     // Check if pending queue has next sequences
-    while(pendingQueue.length > 0 && pendingQueue[0].seq === lastAppliedSeq + 1) {
+    while (pendingQueue.length > 0 && pendingQueue[0].seq === lastAppliedSeq + 1) {
       const nextOp = pendingQueue.shift();
       console.log(`[Follower:${config.port}] Applying queued seq: ${nextOp.seq}`);
       await executeOperation(nextOp.operation, nextOp.seq, nextOp.data);
