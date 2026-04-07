@@ -74,7 +74,7 @@ export default function App() {
     }
   }
 
-  // Discover leader firs, then connect SSE
+  // Discover leader first, then connect SSE
   useEffect(() => {
     async function init() {
       // Poll all nodes to find current leader
