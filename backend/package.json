@@ -6,10 +6,18 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "leader": "cross-env NODE_ENV=leader nodemon src/server.js",
-    "follower1": "cross-env NODE_ENV=follower1 nodemon src/server.js",
-    "follower2": "cross-env NODE_ENV=follower2 nodemon src/server.js",
-    "follower3": "cross-env NODE_ENV=follower3 nodemon src/server.js"
+    "node0": "cross-env NODE_ENV=node0 nodemon src/server.js",
+    "node1": "cross-env NODE_ENV=node1 nodemon src/server.js",
+    "node2": "cross-env NODE_ENV=node2 nodemon src/server.js",
+    "node3": "cross-env NODE_ENV=node3 nodemon src/server.js",
+    "node4": "cross-env NODE_ENV=node4 nodemon src/server.js",
+    "start": "concurrently --names \"N0,N1,N2,N3,N4\" --prefix-colors \"green,cyan,yellow,magenta,grey\" --handle-input \"npm run node0\" \"npm run node1\" \"npm run node2\" \"npm run node3\" \"npm run node4\"",
+    
+    "kill3001": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess -Force\"",
+    "kill3002": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess -Force\"",
+    "kill3003": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3003).OwningProcess -Force\"",
+    "kill3004": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3004).OwningProcess -Force\"",
+    "kill3005": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3005).OwningProcess -Force\""
   },
   "keywords": [],
   "author": "",
@@ -22,6 +30,7 @@
     "mongoose": "^9.2.4"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "nodemon": "^3.1.14"
   }
