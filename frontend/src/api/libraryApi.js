@@ -6,7 +6,8 @@ export const ALL_NODE_URLS = [
   'http://localhost:3002',
   'http://localhost:3003',
   'http://localhost:3004',
-  'http://localhost:3005'
+  'http://localhost:3005',
+  'http://localhost:3006',
 ]
 
 // Generate a dynamic dictionary where key = URL and value = axios instance

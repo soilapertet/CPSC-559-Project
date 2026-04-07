@@ -11,13 +11,15 @@
     "node2": "cross-env NODE_ENV=node2 nodemon src/server.js",
     "node3": "cross-env NODE_ENV=node3 nodemon src/server.js",
     "node4": "cross-env NODE_ENV=node4 nodemon src/server.js",
-    "start": "concurrently --names \"N0,N1,N2,N3,N4\" --prefix-colors \"green,cyan,yellow,magenta,grey\" --handle-input \"npm run node0\" \"npm run node1\" \"npm run node2\" \"npm run node3\" \"npm run node4\"",
+    "node5": "cross-env NODE_ENV=node5 nodemon src/server.js",
+    "start": "concurrently --names \"N0,N1,N2,N3,N4,N5\" --prefix-colors \"green,cyan,yellow,magenta,blue,red\" --handle-input \"npm run node0\" \"npm run node1\" \"npm run node2\" \"npm run node3\" \"npm run node4\" \"npm run node5\"",
     
-    "kill3001": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess -Force\"",
-    "kill3002": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess -Force\"",
-    "kill3003": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3003).OwningProcess -Force\"",
-    "kill3004": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3004).OwningProcess -Force\"",
-    "kill3005": "powershell -Command \"Stop-Process -Id (Get-NetTCPConnection -LocalPort 3005).OwningProcess -Force\""
+    "kill3001": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3001'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3001' }\"",
+    "kill3002": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3002'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3002' }\"",
+    "kill3003": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3003 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3003'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3003' }\"",
+    "kill3004": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3004 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3004'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3004' }\"",
+    "kill3005": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3005 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3005'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3005' }\"",
+    "kill3006": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 3006 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($p) { Write-Host 'Killing node on port 3006'; Stop-Process -Id $p -Force } else { Write-Host 'No process found on port 3006' }\""
   },
   "keywords": [],
   "author": "",
