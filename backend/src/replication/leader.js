@@ -59,7 +59,7 @@ export async function logOperation(operation, data) {
 
 // Initialize all followers' status to alive and retries to 0
 export function initializeFollowerStatus() {
-    config.followers.map((url) => {
+    config.nodes.map((url) => {
         followerStatus.set(url, { alive: true, retries: 0 })
     });
 }
@@ -73,7 +73,7 @@ function handleDeadFollower(deadUrl, port) {
     console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
 
     // Remove dead follower node from nodes list
-    config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
+    config.nodes = config.nodes.filter(Boolean).filter(url => url != deadUrl);
     console.error(`[Leader] Removed dead follower ${port} from node list.`);
 
     // Notify frontend of dead follower
@@ -91,7 +91,7 @@ export async function propagateToFollowers(operation, data) {
     if (config.role !== 'leader') return;
 
     // Get the current follower nodes
-    const followers = config.followers.filter(url => {
+    const followers = config.nodes.filter(url => {
         const port = new URL(url).port;
         return port != String(config.port);
     });
@@ -174,7 +174,7 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
 export async function sendHeartbeats() {
 
     // Get the current follower nodes
-    const followers = config.followers.filter(url => {
+    const followers = config.nodes.filter(url => {
         const port = new URL(url).port;
         return port != String(config.port);
     });

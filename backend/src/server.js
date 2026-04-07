@@ -10,6 +10,7 @@ import borrowRoutes from './routes/borrowRoutes.js';
 import replicateRoutes from './routes/replicateRoutes.js';
 import healthRoute from './routes/healthRoute.js';
 import eventRoute from './routes/eventRoute.js';
+import syncRoutes from './routes/syncRoutes.js';
 
 import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
@@ -34,6 +35,9 @@ app.use("/borrow", borrowRoutes);
 
 // Follower nodes will accept replication from leader  through /replicate node
 app.use("/replicate", replicateRoutes);
+
+// Requests to /sync will direct nodes to syncRoutes.js module
+app.use("/sync", syncRoutes);
 
 // Add a health checkpoint for nodes
 app.use("/health", healthRoute);

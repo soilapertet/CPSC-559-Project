@@ -9,12 +9,12 @@ export const config = {
     role: process.env.ROLE,
     port: process.env.PORT,
 
-    followers: [
-        process.env.LEADER_URL,
-        process.env.FOLLOWER1_URL,
-        process.env.FOLLOWER2_URL,
-        process.env.FOLLOWER3_URL,
-        process.env.FOLLOWER4_URL,
+    nodes: [
+        process.env.NODE0_URL,
+        process.env.NODE1_URL,
+        process.env.NODE2_URL,
+        process.env.NODE3_URL,
+        process.env.NODE4_URL,
     ],
     
     mongo_uri: process.env.MONGODB_URI,

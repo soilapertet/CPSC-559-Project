@@ -27,7 +27,7 @@ function myUrl() {
 // All known nodes: leader and followers
 function getAllNodes() {
 
-    const urls = config.followers.filter(Boolean);
+    const urls = config.nodes.filter(Boolean);
     const unique = [...new Set(urls.filter(Boolean).map(u => u.trim()))];
     return unique.map(url => ({ url, id: parseInt(new URL(url).port, 10) }))
         .sort((a, b) => a.id - b.id);
@@ -48,7 +48,7 @@ function handleDeadLeader(deadUrl) {
     getFollowerStatus().set(deadUrl, { alive: false, retries: MAX_RETRIES });
 
     // Remove dead old leader from followers list
-    config.followers = config.followers.filter(Boolean).filter(url => url != deadUrl);
+    config.nodes = config.nodes.filter(Boolean).filter(url => url != deadUrl);
     console.log(`[Election:${myId()}] Removed dead leader ${deadUrl} from node list.`);
 
     // Notify frontend of dead leader to remove from node pool
@@ -227,7 +227,7 @@ function startFollowerHeartbeat() {
 // Initial Election 
 export async function startInitialElection() {
     
-    const knownNodes = config.followers.filter(Boolean);
+    const knownNodes = config.nodes.filter(Boolean);
 
     let foundLeader = false;
     for (const url of knownNodes) {

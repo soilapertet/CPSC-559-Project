@@ -14,6 +14,9 @@ import OperationLog from '../models/OperationLog.js';
 let lastAppliedSeq = 0;
 let pendingQueue = [];
 
+// Add flag to keep track of syncing status
+let isSyncing = false;
+
 const executeOperation = async (operation, seq, data) => {
   if (operation === 'createUser') {
 
@@ -144,3 +147,36 @@ export const handleReplicate = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const syncFromLeader = async (leaderUrl) => {
+
+  // Get the last applied operation log
+  const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
+
+  // Get the last applied sequence number (default to 0)
+  lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
+  // Fetch missed operations from current leader
+  const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
+
+  if(!res.ok) {
+    throw new Error(`Sync failed: ${res.status}`);
+  }
+
+  const response = await res.json();
+  const missedLogs = response.data || [];
+
+  for (const log of missedLogs) {
+    // Apply each missed operation
+    try {
+
+      console.log(`[Follower:${config.port} Applying seq: ${log.seq}]`);
+      await applyOperation(log.operation, log.data, log.seq);
+      console.log(`[Follower: ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
+
+    } catch (err) {
+      throw new Error(`Error occured while applying seq ${seq}: ${err}`);
+    }
+  }
+
+}
