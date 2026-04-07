@@ -14,6 +14,8 @@ import eventRoute from './routes/eventRoute.js';
 import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
 
+import { initializeSeq } from "./replication/leader.js";
+
 // Create a connection to the MongoDB instance
 connectDB();
 
@@ -45,6 +47,9 @@ app.use("/events", eventRoute);
 app.listen(config.port, () => {
 
   console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+
+  // Initialize sequence number to the latest sequence number logged to the db
+  initializeSeq();
 
   // Initiate leader election on server setup
   setTimeout(() => {

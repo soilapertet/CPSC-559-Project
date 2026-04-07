@@ -9,15 +9,17 @@ import { config } from '../config/config.js';
 import Book from '../models/Book.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import OperationLog from '../models/OperationLog.js';
 
 export const handleReplicate = async (req, res) => {
 
-  const { operation, data, timestamp } = req.body;
+  const { seqNum, operation, data, timestamp } = req.body;
 
   console.log(`[Follower:${config.port}] Received replication: '${operation}' at ${timestamp}`);
 
   try {
     if (operation === 'createUser') {
+
       // Create user with the same _id as the leader so userId references stay consistent
       await User.create({
         _id: data._id,
@@ -26,10 +28,21 @@ export const handleReplicate = async (req, res) => {
         userName: data.userName,
         email: data.email
       });
+
+      // Create new operation log for user creation
+      await OperationLog.create({
+        seqNum,
+        operation,
+        data
+      });
+
       console.log(`[Follower:${config.port}] Applied: createUser (${data.userName})`);
+      console.log(`[Follower:${config.port}] Logged new operation (Operation logged : ${operation}`);
+
     }
 
     else if (operation === 'borrow') {
+
       // Decrement availableCopies on this node's book
       await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: -1 } });
 
@@ -41,10 +54,21 @@ export const handleReplicate = async (req, res) => {
         status: 'borrowed',
         dueDate: new Date(data.dueDate)
       });
+
+      // Create new operation log entry for borrow transaction
+      await OperationLog.create({
+        seqNum,
+        operation,
+        data,
+      });
+
       console.log(`[Follower:${config.port}] Applied: borrow (book ${data.bookId})`);
+      console.log(`[Follower:${config.port}] Logged new operation (Operation logged : ${operation})`);
+
     }
 
     else if (operation === 'return') {
+
       // Update transaction status
       await Transaction.findByIdAndUpdate(data.transactionId, {
         status: 'returned',
@@ -53,7 +77,16 @@ export const handleReplicate = async (req, res) => {
 
       // Increment availableCopies on this node's book
       await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: 1 } });
-      console.log(`[Follower:${config.port}] Applied: return (book ${data.bookId})`);
+
+      // Create new operation log for return transaction
+      await OperationLog.create({
+        seqNum,
+        operation,
+        data
+      });
+
+      console.log(`[Follower:${config.port}] Logged operation  (book ${operation})`);
+      console.log(`[Follower:${config.port}] Logged new operation (Operation logged : ${operation})`);
     }
 
     else {

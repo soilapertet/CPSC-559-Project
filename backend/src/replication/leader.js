@@ -3,6 +3,9 @@
 import { config } from "../config/config.js";
 import { notifyFrontend } from "../routes/eventRoute.js";
 
+// Import OperationLog schema to handle db operations
+import OperationLog from "../models/OperationLog.js";
+
 const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
 const BACKOFF_MULTIPLIER = 2;                               // double the timeout period with each attempt
@@ -10,10 +13,37 @@ const BACKOFF_MULTIPLIER = 2;                               // double the timeou
 // Create a map to keep track of followers' status
 const followerStatus = new Map();
 
+// Initialize a variable to store latest sequence number read from MongoDB
+let seqNum = 0;
+
 // Get active followers
 export function getFollowerStatus() {
     return followerStatus;
 }
+
+// Read last sequence number stored in DB  on startup
+export async function initializeSeq ()  {
+
+    // Get the latest write operation log added to db
+    const lastLog = await OperationLog.findOne().sort({ seqNum : -1 });
+
+    // Update last sequence number accordingly
+    seqNum = lastLog ? lastLog.seqNum : 0;
+
+    return seqNum;
+}
+
+// Create a new log entry and save it to the db
+export async function logOperation (operation, data) {
+
+    // Create and save a new operation log entry to db
+    await OperationLog.create ({
+        seqNum,
+        operation,
+        data,
+    });
+
+};
 
 // Initialize all followers' status to alive and retries to 0
 export function initializeFollowerStatus() {
@@ -21,6 +51,7 @@ export function initializeFollowerStatus() {
         followerStatus.set(url, { alive: true, retries: 0 })
     });
 }
+
 
 // Logic to remove dead follower from node list
 function handleDeadFollower(deadUrl, port) {
@@ -56,6 +87,9 @@ export async function propagateToFollowers(operation, data) {
     // Get the active follower nodes
     const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
+    //  Log write operation to local db before propagating to followers 
+    await logOperation(operation, data);
+
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
     const result = await Promise.allSettled(
@@ -64,6 +98,7 @@ export async function propagateToFollowers(operation, data) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    seqNum,
                     operation,
                     data,
                     timestamp: new Date().toISOString()

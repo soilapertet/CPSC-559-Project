@@ -10,7 +10,7 @@ const operationLogSchema = new Schema({
     operation : {
         type : String,
         required : true,
-        enum : ["borrow", "return", "create_user"]
+        enum : ["borrow", "return", "createUser"]
     },
     data : {
         type : Schema.Types.Mixed,
