@@ -19,7 +19,7 @@ export default function App() {
       for (const url of ALL_NODE_URLS) {
         try {
           // Pings /health endpoint to check for node information
-          const res = await fetch(`${url}health`, { signal: AbortSignal.timeout(2000) });
+          const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(2000) });
           const data = await res.json();
 
           // Checks if node is a leader
@@ -41,7 +41,7 @@ export default function App() {
   function connectSSE(leaderUrl) {
     if (sseRef.current) sseRef.current.close()
 
-    const es = new EventSource(`${leaderUrl}events`)
+    const es = new EventSource(`${leaderUrl}/events`)
     sseRef.current = es
 
     // Listens for follower-dead event from the backend
@@ -57,7 +57,7 @@ export default function App() {
       setLeaderUrl(url)
       setReconnecting(false)
       console.log(`[SSE] New leader elected: ${url}`)
-      connectSSE(url.endsWith('/') ? url : url + '/')
+      connectSSE(url)
     })
 
     es.onerror = () => {
@@ -81,7 +81,7 @@ export default function App() {
       for (const url of ALL_NODE_URLS) {
         try {
           // Pings the /health endpoint to check the status of the node
-          const res = await fetch(`${url}health`, {
+          const res = await fetch(`${url}/health`, {
             signal: AbortSignal.timeout(2000)
           });
 

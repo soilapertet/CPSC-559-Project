@@ -2,11 +2,11 @@ import axios from 'axios'
 
 // All known node URLs — used to poll for new leader during election
 export const ALL_NODE_URLS = [
-  'http://localhost:3001/',
-  'http://localhost:3002/',
-  'http://localhost:3003/',
-  'http://localhost:3004/',
-  'http://localhost:3005/'
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:3004',
+  'http://localhost:3005'
 ]
 
 const leaderApi = axios.create({
@@ -16,33 +16,33 @@ const leaderApi = axios.create({
 });
 
 const node0Api = axios.create({
-  baseURL: 'http://localhost:3001/',
+  baseURL: 'http://localhost:3001',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 const node1Api = axios.create({
-  baseURL: 'http://localhost:3002/',
+  baseURL: 'http://localhost:3002',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 const node2Api = axios.create({
-  baseURL: 'http://localhost:3003/',
+  baseURL: 'http://localhost:3003',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 // Create an axios instance for follower 3 - read operations are directed to follower 3
 const node3Api = axios.create({
-  baseURL: 'http://localhost:3004/',
+  baseURL: 'http://localhost:3004',
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 })
 
 // Create an axios instance for follower 4 - read operations are directed to follower 4
 const node4Api = axios.create({
-  baseURL: import.meta.env.FOLLOWER4_URL || 'http://localhost:3005/',
+  baseURL: 'http://localhost:3005',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -61,7 +61,7 @@ function getApi() {
 // ─── Dynamic leader/follower management (called by SSE event handler in App.jsx) ─
 
 export function setLeaderUrl(url) {
-  const base = url.endsWith('/') ? url : url + '/'
+  const base = url.endsWith('/') ? url.slice(0, -1) : url;
   leaderApi.defaults.baseURL = base
 }
 
@@ -70,7 +70,7 @@ export function getLeaderUrl() {
 }
 
 export function removeFollower(url) {
-  const base = url.endsWith('/') ? url : url + '/'
+  const base = url.endsWith('/') ? url.slice(0, -1) : url;
   const i = apis.findIndex(a => a.defaults.baseURL === base)
   if (i !== -1) apis.splice(i, 1)
 }
