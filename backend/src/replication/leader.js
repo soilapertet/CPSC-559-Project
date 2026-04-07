@@ -14,7 +14,7 @@ const BACKOFF_MULTIPLIER = 2;                               // double the timeou
 const followerStatus = new Map();
 
 // Initialize a variable to store latest sequence number read from MongoDB
-let seqNum = 0;
+let seq = 0;
 
 // Get active followers
 export function getFollowerStatus() {
@@ -25,12 +25,12 @@ export function getFollowerStatus() {
 export async function initializeSeq ()  {
 
     // Get the latest write operation log added to db
-    const lastLog = await OperationLog.findOne().sort({ seqNum : -1 });
+    const lastLog = await OperationLog.findOne().sort({ seq : -1 });
 
     // Update last sequence number accordingly
-    seqNum = lastLog ? lastLog.seqNum : 0;
+    seq = lastLog ? lastLog.seq : 0;
 
-    return seqNum;
+    return seq;
 }
 
 // Create a new log entry and save it to the db
@@ -38,7 +38,7 @@ export async function logOperation (operation, data) {
 
     // Create and save a new operation log entry to db
     await OperationLog.create ({
-        seqNum,
+        seq,
         operation,
         data,
     });
@@ -92,30 +92,35 @@ export async function propagateToFollowers(operation, data) {
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
-    const result = await Promise.allSettled(
-        activeURLS.map((url) => {
+    const results = await Promise.allSettled(
+        activeURLS.map((url) =>
             fetch(`${url.trim()}/replicate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    seqNum,
                     operation,
                     data,
+                    seq,
                     timestamp: new Date().toISOString()
                 })
-            }).then((res) => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                console.log(`[Leader] Replicated '${operation}' to ${url}`)
+            }).then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return res;
             })
-        })
+        )
     );
 
-    // Check if any followers failed to ensure strong consistency (consistency model subject to change)
-    const failed = result.filter(r => r.status === 'rejected');
-    if (failed.length > 0) {
-        throw new Error(`Replication failed: ${failed.length} follower(s) did not ACK.`)
+    // Quorum calculation
+    const successCount = results.filter(r => r.status === 'fulfilled').length;
+    const N = activeURLS.length;
+    const W = Math.floor(N / 2) + 1;
+
+    // Throw error if ACKs received is less than quorum threshold
+    console.log(`[Leader] seq ${seq}: Received ${successCount}/${N} ACKs. Quorum (W) is ${W}.`);
+    if (successCount < W) {
+        throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
+    
 }
 
 // Ping Follower node to check health status

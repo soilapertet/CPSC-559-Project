@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 // Define a new schema to store an operation log insance
 const operationLogSchema = new Schema({
-    seqNum : {
+    seq : {
         type : Number,
         required : true,
         unique : true,
