@@ -19,16 +19,15 @@ const state = {
 function myId() {
     return parseInt(config.port, 10);
 }
+
 function myUrl() {
     return `http://localhost:${config.port}`;
 }
 
 // All known nodes: leader and followers
 function getAllNodes() {
-    const urls = [
-        config.leader?.url,
-        ...config.followers.filter(Boolean),
-    ];
+
+    const urls = config.followers.filter(Boolean);
     const unique = [...new Set(urls.filter(Boolean).map(u => u.trim()))];
     return unique.map(url => ({ url, id: parseInt(new URL(url).port, 10) }))
         .sort((a, b) => a.id - b.id);
@@ -59,6 +58,11 @@ function handleDeadLeader(deadUrl) {
         type: 'leader-dead',
         url: deadUrl,
     })
+}
+
+// Add a getter method to get the elected leader's url
+export function getLeaderUrl() {
+    return state.currentLeaderUrl;
 }
 
 async function sendMessage(url, type, payload = {}) {
@@ -135,7 +139,6 @@ async function declareLeader() {
     state.isLeader = true;
     state.isRunningElection = false;
     config.role = 'leader';
-    config.leader = { url: myUrl() };
 
     console.log(`[Election:${myId()}] Broadcasting 'leader' to all nodes.`);
     const others = getAllNodes().filter(n => n.id !== myId());
@@ -149,7 +152,7 @@ async function declareLeader() {
     // Pass new leader url to frontend
     notifyFrontend({
         type: 'new-leader',
-        url : myUrl(),
+        url: myUrl(),
     });
 
     startLeaderHeartbeat();
@@ -207,7 +210,7 @@ function stopLeaderHeartbeat() {
 function startFollowerHeartbeat() {
     stopLeaderHeartbeat();
     state.heartbeatTimer = setInterval(async () => {
-        const leaderUrl = state.currentLeaderUrl || config.leader?.url;
+        const leaderUrl = state.currentLeaderUrl;
         if (!leaderUrl) return;
 
         const crashed = await failureDetector(leaderUrl);
@@ -223,10 +226,8 @@ function startFollowerHeartbeat() {
 
 // Initial Election 
 export async function startInitialElection() {
-    const knownNodes = [
-        ...config.followers.filter(Boolean),
-        config.leader?.url
-    ].filter(Boolean);
+    
+    const knownNodes = config.followers.filter(Boolean);
 
     let foundLeader = false;
     for (const url of knownNodes) {
