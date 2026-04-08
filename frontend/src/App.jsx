@@ -7,6 +7,7 @@ import ReconnectingBanner from './components/ReconnectingBanner'
 import { setLeaderUrl, removeFollower, addFollower, ALL_NODE_URLS } from './api/libraryApi'
 
 export default function App() {
+
   const [reconnecting, setReconnecting] = useState(false)
   const sseRef = useRef(null)
   const pollRef = useRef(null)
@@ -39,9 +40,13 @@ export default function App() {
   }
 
   function connectSSE(leaderUrl) {
-    if (sseRef.current) sseRef.current.close()
 
-    const es = new EventSource(`${leaderUrl}/events`)
+    if (sseRef.current) {
+      sseRef.current.close();
+    }
+
+    const base = leaderUrl.endsWith('/') ? leaderUrl.slice(0, -1) : leaderUrl;
+    const es = new EventSource(`${base}/events`)
     sseRef.current = es
 
     // Listens for follower-dead event from the backend
@@ -73,7 +78,7 @@ export default function App() {
 
       // Remove leader node from node pool
       const deadLeaderUrl = leaderUrl;
-      removeFollower(deadLeaderUrl);  
+      removeFollower(deadLeaderUrl);
       console.log(`[SSE] Leader removed from pool: ${deadLeaderUrl}`)
 
       console.warn('[SSE] Leader connection lost — starting election poll...')
@@ -99,7 +104,7 @@ export default function App() {
           // Opens a connection to leader node to receive updates from backend
           if (data.role === 'leader') {
             setLeaderUrl(url);
-            connectSSE(url.endsWith('/') ? url : url + '/')
+            connectSSE(url);
             return
           }
         } catch { /* node unreachable, try next node*/ }

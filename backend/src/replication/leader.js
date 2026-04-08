@@ -37,6 +37,10 @@ export async function initializeSeq() {
 // Create a new log entry and save it to the db
 export async function logOperation(operation, data) {
 
+    // Retrieve last applied sequence from operation_logs collections
+    let lastAppliedLog = await OperationLog.findOne().sort({ seq : -1 });
+    seq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
     // Increment the sequence number
     seq++;
     console.log(`Current sequence number: ${seq}`);
@@ -68,10 +72,17 @@ export function initializeFollowerStatus() {
 // Logic to remove dead follower from node list
 function handleDeadFollower(deadUrl, port) {
 
+    // Check if we've already notified the frontend of the dead node
+    const prev = followerStatus.get(deadUrl);
+
+    if (prev && prev.alive === false) {
+        return;
+    }
+
     // Mark follower node as dead
     followerStatus.set(deadUrl, { alive: false, retries: MAX_RETRIES });
-    console.error(`[Leader] Node ${port} is dead after ${MAX_RETRIES}.`);
 
+    
     // Notify frontend of dead follower
     // Named event: follower-dead
     // Pass url of dead follower
@@ -93,7 +104,18 @@ async function handleRecoveredNode(recoveredUrl) {
         });
 
         if (!res.ok) {
-            throw new Error(`[RECOVERED NODE ${config.port}] Sync request failed: ${res.status}.`);
+            let errorMessage = `Sync request failed: ${res.status}`;
+
+            try {
+                const data = await res.json();
+                if (data?.error) {
+                    errorMessage = data.error;
+                }
+            } catch {
+                // response wasn't JSON
+            }
+
+            throw new Error(`[RECOVERED NODE ${config.port}] ${errorMessage}`);
         }
 
         // Notify frontend of recovered follower
@@ -186,7 +208,6 @@ export async function pingFollower(url, retryCount = 0, delay = TIMEOUT) {
         }
 
     } catch {
-        console.warn(`[Leader] Node ${port} did not respond. Attempt: ${retryCount + 1}.`);
 
         // Ping follower again if retry count is less than maximum retries
         if (retryCount < MAX_RETRIES - 1) {
@@ -213,5 +234,5 @@ export async function sendHeartbeats() {
         return port != String(config.port);
     });
 
-    await Promise.allSettled(activeURLS.map(url => pingFollower(url)));
+    await Promise.allSettled(followers.map(url => pingFollower(url)));
 }

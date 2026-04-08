@@ -18,7 +18,7 @@ export const NODE_URL_MAPPING = Object.fromEntries(
   ALL_NODE_URLS.map(url => [
     url,
     axios.create({
-      baseUrl: url,
+      baseURL: url,
       headers: { 'Content-Type': 'application/json' },
       timeout: 10000,
     })
@@ -32,7 +32,7 @@ const leaderApi = axios.create({
 });
 
 // Access all axios instances from NODE_URL_MAPPING object
-const apis = Object.values(NODE_URL_MAPPING); 
+let apis = Object.values(NODE_URL_MAPPING); 
 let index = 0;
 
 // Normalize URLs to minimise future errors
