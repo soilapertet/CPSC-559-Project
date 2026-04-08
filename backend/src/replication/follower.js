@@ -94,6 +94,16 @@ const executeOperation = async (operation, seq, data) => {
 }
 
 const applyOperation = async (operation, data, seq) => {
+
+  // Get the last applied operation log
+  const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
+
+  // Get the last applied sequence number (default to 0)
+  lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
+  console.log(`[DEBUG] Last Applied Sequence Number: ${lastAppliedSeq}`);
+  console.log(`[DEBUG] Circulating Sequence Number: ${seq}`);
+
   // Check if operation was already applied
   if (seq <= lastAppliedSeq) {
     console.warn(`[Follower:${config.port}] Duplicate detected. Ignoring seq: ${seq}`);
@@ -184,7 +194,7 @@ export const syncFromLeader = async (leaderUrl) => {
 
         console.log(`[Syncing Node ${config.port} Applying seq: ${log.seq}]`);
         await applyOperation(log.operation, log.data, log.seq);
-        console.log(`Syncing Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
+        console.log(`[Syncing Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
 
       } catch (err) {
         throw new Error(`Error occured while applying seq ${seq}: ${err}`);
@@ -194,6 +204,6 @@ export const syncFromLeader = async (leaderUrl) => {
     console.error(`[Syncing Node ${config.port}] Sync failed: ${err.message}`);
     throw err;
   } finally {
-    isSyncing(false);
+    isSyncing = false;
   }
 }

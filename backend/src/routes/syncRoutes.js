@@ -10,11 +10,25 @@ const router = express.Router();
 router.post('/sync-request', async (req, res) => {
 
     try {
-        const leaderUrl = getLeaderUrl();
+        let leaderUrl = getLeaderUrl();
+        let retries = 5; 
 
-        if(!leaderUrl) {
-            return res.statusMessage(400).json({
-                error :'No leader available for sync.'
+        // Poll more aggressively during recovery
+        while (!leaderUrl && retries > 0) {
+            await new Promise(r => setTimeout(r, 500));
+            leaderUrl = getLeaderUrl();
+            retries--;
+        }
+
+        if (!leaderUrl) {
+            return res.status(400).json({ error: 'No leader available for sync.' });
+        }
+
+        console.log(`[DEBUG] Leader URL: ${leaderUrl}`);
+
+        if (!leaderUrl) {
+            return res.status(400).json({
+                error: 'No leader available for sync.'
             })
         }
 
@@ -23,13 +37,13 @@ router.post('/sync-request', async (req, res) => {
         console.log(`[Synced Node ${config.port}] Successfully synced with current leader ${leaderUrl}.`);
 
         res.status(200).json({
-            message : 'Sync complete.'
+            message: 'Sync complete.'
         });
 
-    } catch(err) {
+    } catch (err) {
         res.status(500).json({
-            message : 'Error occured while syncing with current leader',
-            error : err.message
+            message: 'Error occured while syncing with current leader',
+            error: err.message
         });
     }
 });
