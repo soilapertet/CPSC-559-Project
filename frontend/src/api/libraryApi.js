@@ -20,7 +20,7 @@ export const NODE_URL_MAPPING = Object.fromEntries(
     axios.create({
       baseURL: url,
       headers: { 'Content-Type': 'application/json' },
-      timeout: 10000,
+      timeout: 1500,
     })
   ])
 );
@@ -28,12 +28,18 @@ export const NODE_URL_MAPPING = Object.fromEntries(
 const leaderApi = axios.create({
   baseURL: '',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+  timeout: 1500,
 });
 
-// Access all axios instances from NODE_URL_MAPPING object
-let apis = Object.values(NODE_URL_MAPPING); 
+// Dynamic pool of Axios instances for active follower nodes
+let apis = []
 let index = 0;
+let isInitialized = false;      // Flag for leader discovery
+// Block API calls until leader is discovered
+let resolveInit;
+let initializationPromise = new Promise((resolve) => {
+  resolveInit = resolve;
+});
 
 // Normalize URLs to minimise future errors
 function normalizeUrl(url) {
@@ -41,7 +47,13 @@ function normalizeUrl(url) {
 }
 
 // Distribute read requests evenly between follower nodes (Load balancing)
-function getApi() {
+async function getApi() {
+  // Wait for leader discovery
+  if (!isInitialized) {
+    console.warn("[Frontend] Waiting for leader discovery...");
+    await initializationPromise;
+  }
+
   if (apis.length === 0) return leaderApi  // all followers dead — fall back to leader
   return apis[index++ % apis.length]
 }
@@ -51,6 +63,9 @@ function getApi() {
 export function setLeaderUrl(url) {
   const base = normalizeUrl(url);
   leaderApi.defaults.baseURL = base
+  isInitialized = true;
+  console.log(`[Frontend] Leader discovered: ${base}`)
+  resolveInit();
 }
 
 export function getLeaderUrl() {
@@ -60,6 +75,7 @@ export function getLeaderUrl() {
 export function removeFollower(url) {
   const base = normalizeUrl(url);
   apis = apis.filter(api => api.defaults.baseURL !== base);
+  console.log(`[Frontend] Removing follower: ${base}`)
 }
 
 export function addFollower(url) {
@@ -83,7 +99,7 @@ export function addFollower(url) {
 // ─── API functions ────────────────────────────────────────────────────────────
 
 export async function getAllBooks(params = {}) {
-  const follower = getApi()
+  const follower = await getApi()
   if (params && Object.keys(params).length > 0) {
     const key = Object.keys(params)[0]
     const response = await follower.get('/books/search', { params: { [key]: params[key] } })
@@ -95,7 +111,7 @@ export async function getAllBooks(params = {}) {
 }
 
 export async function searchBooks(q, type = 'Keyword') {
-  const follower = getApi()
+  const follower = await getApi()
   if (type === 'id') {
     const response = await follower.get(`/books/${q}`)
     return { data: { success: true, data: response.data ? [response.data] : [] } }
@@ -124,12 +140,12 @@ export async function returnBook(userId, bookId) {
 }
 
 export async function getActiveBorrows(userId) {
-  const follower = getApi()
+  const follower = await getApi()
   return follower.get(`/borrow/active/${userId}`)
 }
 
 export async function getBorrowHistory(userId) {
-  const follower = getApi()
+  const follower = await getApi()
   return follower.get(`/borrow/history/${userId}`)
 }
 
