@@ -25,13 +25,13 @@ app.use(express.json());
 // Requests to /user will be directed to the userRoutes.js module
 app.use("/books/user", userRoutes);
 
-// Requests to /browse will be directed to the browseRoutes.js module
+// Requests to /browse will be directed to the booksRoutes.js module
 app.use("/books", booksRoutes);
 
 // Requests to /borrow will be directed to the borrowRoutes.js module
 app.use("/borrow", borrowRoutes);
 
-// Follower nodes will accept replication from leader  through /replicate node
+// Follower nodes will accept replication from leader through /replicate node
 app.use("/replicate", replicateRoutes);
 
 // Requests to /sync will direct nodes to syncRoutes.js module

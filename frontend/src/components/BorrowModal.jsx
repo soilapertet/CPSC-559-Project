@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useUser } from '../context/UserContext'
 import { borrowBook } from '../api/libraryApi'
 import AuthModal from './AuthModal'
+import { retryRequest } from '../utils/retryRequest'
 
 export default function BorrowModal({ book, onClose, onSuccess }) {
   const { userId } = useUser()
@@ -18,9 +19,14 @@ export default function BorrowModal({ book, onClose, onSuccess }) {
   async function handleConfirm() {
     setError('')
     setLoading(true)
+
+    // Generate request id for borrow request
     const request_id = uuidv4();
+    
     try {
-      const res = await borrowBook(userId, book._id, request_id);
+      const res = await retryRequest(() =>
+        borrowBook(userId, book._id, request_id)
+      );
       onSuccess()
     } catch (err) {
       const message = err.response?.data?.error || 'Failed to borrow book. Please try again.';

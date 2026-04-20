@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import TransactionTable from '../components/TransactionTable'
 import AuthModal from '../components/AuthModal'
 import { useUser } from '../context/UserContext'
+import { retryRequest } from '../utils/retryRequest'
 import { getActiveBorrows, getBorrowHistory, returnBook } from '../api/libraryApi'
 
 export default function MyBooksPage() {
@@ -40,7 +41,10 @@ export default function MyBooksPage() {
     const request_id = uuidv4();
 
     try {
-      const res  = await returnBook(userId, bookId, request_id);
+      const res = await retryRequest(() =>
+        returnBook(userId, bookId, request_id)
+      );
+
       setSuccessMsg(res.data.message);
       setErrorMsg('');              // clear any previous error message
 
