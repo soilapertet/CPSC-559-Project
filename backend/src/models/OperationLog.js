@@ -7,6 +7,11 @@ const operationLogSchema = new Schema({
         required : true,
         unique : true,
     },
+    request_id : {
+        type : Number,
+        required: true,
+        unique : true,
+    }, 
     operation : {
         type : String,
         required : true,
@@ -15,6 +20,10 @@ const operationLogSchema = new Schema({
     data : {
         type : Schema.Types.Mixed,
         required : true
+    },
+    committed : {
+        type : Boolean,
+        default : false
     },
     timestamp : {
         type : Date,

@@ -5,6 +5,7 @@ import { notifyFrontend } from "../routes/eventRoute.js";
 
 // Import OperationLog schema to handle db operations
 import OperationLog from "../models/OperationLog.js";
+import Counter from "../models/Counter.js";
 
 const TIMEOUT = 1000;                                       // wait for 1 second to receive response from follower
 const MAX_RETRIES = 3;                                      // number of attempts to check follower's status
@@ -13,44 +14,40 @@ const BACKOFF_MULTIPLIER = 2;                               // double the timeou
 // Create a map to keep track of followers' status
 const followerStatus = new Map();
 
-// Initialize a variable to store latest sequence number read from MongoDB
-let seq = 0;
-
 // Get active followers
 export function getFollowerStatus() {
     return followerStatus;
 }
 
-// Read last sequence number stored in DB  on startup
-export async function initializeSeq() {
-
-    // Get the latest write operation log added to db
-    const lastLog = await OperationLog.findOne().sort({ seq: -1 });
-
-    // Update last sequence number accordingly
-    seq = lastLog ? lastLog.seq : 0;
-    console.log(`Last sequence number : ${seq}`);
-
-    return seq;
-}
-
 // Create a new log entry and save it to the db
-export async function logOperation(operation, data) {
-
-    // Retrieve last applied sequence from operation_logs collections
-    let lastAppliedLog = await OperationLog.findOne().sort({ seq : -1 });
-    seq = lastAppliedLog ? lastAppliedLog.seq : 0;
-
-    // Increment the sequence number
-    seq++;
-    console.log(`Current sequence number: ${seq}`);
+export async function logOperation(request_id, operation, data) {
 
     try {
+
+        //  Before logging new write operation, check if it's the same request
+        const existingWriteOp = await OperationLog.findOne({ request_id });
+
+        if (existingWriteOp) {
+            if(existingWriteOp.committed) {
+                return existingWriteOp.seq;
+            } else {
+                // return sequence number if this is a retry write operation
+                console.log(`[Leader] Retrying uncommitted write operation ${request_id}`);
+                return existingWriteOp.seq;
+            }
+        }
+
+        // Increment the sequence number
+        const seq = await getNextSeq();
+        console.log(`Current sequence number: ${seq}`);
+
         // Create and save a new operation log entry to db
         await OperationLog.create({
             seq,
+            request_id,
             operation,
             data,
+            committed: false,
         });
 
         return seq;
@@ -68,6 +65,43 @@ export function initializeFollowerStatus() {
     });
 }
 
+// Initialize a counter that is linked to the sequence number
+export async function initializeCounter() {
+
+    const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
+    const lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+
+    await Counter.findOneAndUpdate(
+        { _id: "operation_log_seq" },
+        { $set: { value: lastAppliedSeq } },
+        { upsert: true }                       // creates if it doesn't exist
+    )
+
+    console.log(`Sequence number initialized: ${lastAppliedSeq}.`);
+
+}
+
+// Create a function to safely increment the sequence number
+export async function getNextSeq() {
+
+    const result = await Counter.findOneAndUpdate(
+        { _id: "operation_log_seq" },
+        { $inc: { value: 1 } },
+        { new: true, upsert: true }
+    );
+
+    return result.value;
+}
+
+// Define a function to mark the write operation as committed once the leader has received an ACK from the majority
+export async function markCommitted(seq) {
+    await OperationLog.updateOne(
+        { seq },
+        { $set: { committed: true } }
+    );
+
+    console.log(`[Leader] Sequence Number ${seq} marked as COMMITTED.`);
+}
 
 // Logic to remove dead follower from node list
 function handleDeadFollower(deadUrl, port) {
@@ -82,7 +116,7 @@ function handleDeadFollower(deadUrl, port) {
     // Mark follower node as dead
     followerStatus.set(deadUrl, { alive: false, retries: MAX_RETRIES });
 
-    
+
     // Notify frontend of dead follower
     // Named event: follower-dead
     // Pass url of dead follower
@@ -132,7 +166,7 @@ async function handleRecoveredNode(recoveredUrl) {
 
 }
 
-export async function propagateToFollowers(operation, data) {
+export async function propagateToFollowers(request_id, operation, data) {
 
     if (config.role !== 'leader') return;
 
@@ -145,8 +179,7 @@ export async function propagateToFollowers(operation, data) {
     // Get the active follower nodes
     const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
-    //  Log write operation to local db before propagating to followers 
-    const seq = await logOperation(operation, data);
+    const seq = await logOperation(request_id, operation, data);
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
@@ -155,7 +188,9 @@ export async function propagateToFollowers(operation, data) {
             fetch(`${url.trim()}/replicate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(TIMEOUT),
                 body: JSON.stringify({
+                    request_id,
                     operation,
                     data,
                     seq,
@@ -169,16 +204,21 @@ export async function propagateToFollowers(operation, data) {
     );
 
     // Quorum calculation
-    const successCount = results.filter(r => r.status === 'fulfilled').length;
-    const N = activeURLS.length;
+    const successCount = results.filter(r => r.status === 'fulfilled').length + 1;          // success counter should also include leader since it also made write operation
+    const N = activeURLS.length + 1;
     const W = Math.floor(N / 2) + 1;
 
     // Throw error if ACKs received is less than quorum threshold
     console.log(`[Leader] seq ${seq}: Received ${successCount}/${N} ACKs. Quorum (W) is ${W}.`);
-    if (successCount < W) {
+
+    if (successCount >= W) {
+        await markCommitted(seq);
+    } else {
+        console.log(`[Leader] Sequence Number ${seq} NOT committed.`);
         throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
 
+    return { seq };
 }
 
 // Ping Follower node to check health status

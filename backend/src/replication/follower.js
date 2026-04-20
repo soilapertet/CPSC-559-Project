@@ -1,5 +1,3 @@
-// ================== Code Credit: Abdullah Ishtiaq ==================
-
 // Handles incoming replication payloads from the leader.
 // Re-applies the same DB operation on this follower's own database,
 // using the same _id values as the leader to ensure ID consistency across nodes.
@@ -17,7 +15,7 @@ let pendingQueue = [];
 // Add flag to keep track of syncing status
 let isSyncing = false;
 
-const executeOperation = async (operation, seq, data) => {
+const executeOperation = async (request_id, operation, seq, data) => {
   if (operation === 'createUser') {
 
     // Create user with the same _id as the leader so userId references stay consistent
@@ -32,6 +30,7 @@ const executeOperation = async (operation, seq, data) => {
     // Create and save a new operation log entry to db
     await OperationLog.create({
       seq,
+      request_id,
       operation,
       data,
     });
@@ -56,6 +55,7 @@ const executeOperation = async (operation, seq, data) => {
     // Create and save a new operation log entry to db
     await OperationLog.create({
       seq,
+      request_id,
       operation,
       data,
     });
@@ -78,6 +78,7 @@ const executeOperation = async (operation, seq, data) => {
     // Create and save a new operation log entry to db
     await OperationLog.create({
       seq,
+      request_id,
       operation,
       data,
     });
@@ -93,7 +94,7 @@ const executeOperation = async (operation, seq, data) => {
 
 }
 
-const applyOperation = async (operation, data, seq) => {
+const applyOperation = async (request_id, operation, data, seq) => {
 
   // Get the last applied operation log
   const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
@@ -121,7 +122,7 @@ const applyOperation = async (operation, data, seq) => {
   // Apply current operation
   try {
     console.log(`[Follower:${config.port} Applying seq: ${seq}]`);
-    await executeOperation(operation, seq, data);
+    await executeOperation(request_id, operation, seq, data);
     lastAppliedSeq = seq;
 
     // Check if pending queue has next sequences
@@ -139,15 +140,16 @@ const applyOperation = async (operation, data, seq) => {
 }
 
 export const handleReplicate = async (req, res) => {
-  const { operation, data, seq, timestamp } = req.body;
+  const { request_id, operation, data, seq, timestamp } = req.body;
 
   console.log(`[Follower:${config.port}] Received replication: '${operation}' at ${timestamp}`);
 
   try {
-    await applyOperation(operation, data, seq);
+    await applyOperation(request_id, operation, data, seq);
 
     res.status(200).json({
       message: 'ACK',
+      request_id,
       operation,
       seq,
       port: config.port
