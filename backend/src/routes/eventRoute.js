@@ -1,5 +1,6 @@
 import express from 'express';
 import { config } from '../config/config.js';
+import { getFollowerStatus } from '../replication/leader.js';
 
 const router = express.Router();
 
@@ -13,6 +14,23 @@ router.get('/', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+
+    // Get active followers
+    const followers = getFollowerStatus();
+    const aliveUrls = [];
+    followers.forEach((status, url) => {
+        const isSelf = new URL(url).port === String(config.port);
+        if (status.alive && !isSelf) aliveUrls.push(url);
+    });
+
+    // Send active followers to frontend
+    if (aliveUrls.length > 0) {
+        const initialState = {
+            type: 'follower-state',
+            urls: aliveUrls
+        };
+        res.write(`event: follower-state\ndata: ${JSON.stringify(initialState)}\n\n`);
+    }
 
     // Add current client to set
     clients.add(res);
