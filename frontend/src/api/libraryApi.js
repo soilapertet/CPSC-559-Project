@@ -32,9 +32,10 @@ const leaderApi = axios.create({
 });
 
 // Dynamic pool of Axios instances for active follower nodes
-let apis = []
+let apis = [];
 let index = 0;
 let isInitialized = false;      // Flag for leader discovery
+
 // Block API calls until leader is discovered
 let resolveInit;
 let initializationPromise = new Promise((resolve) => {
@@ -47,6 +48,7 @@ function normalizeUrl(url) {
 }
 
 // Distribute read requests evenly between follower nodes (Load balancing)
+// Uses quorum to prevent stale reads
 async function getApi() {
   // Wait for leader discovery
   if (!isInitialized) {
@@ -54,8 +56,55 @@ async function getApi() {
     await initializationPromise;
   }
 
-  if (apis.length === 0) return leaderApi  // all followers dead — fall back to leader
-  return apis[index++ % apis.length]
+  // Initialize list of candidates
+  const candidates = [...apis];
+
+  // Only the leader is active
+  if (candidates.length === 0) return leaderApi;
+
+  // Add leader to candidates list for quorum and sequence number check
+  const leaderBase = leaderApi.defaults.baseURL;
+  if (leaderBase && !candidates.some(a => a.defaults.baseURL === leaderBase)) {
+    candidates.push(leaderApi)
+  }
+
+  // Calculate quorum for reads
+  const N = candidates.length; 
+  const R = Math.floor(N/2) + 1;
+
+  // Get candidates' latest sequences applied
+  const checks = candidates.map(async (api) => {
+    try {
+      const res = await axios.get(`${api.defaults.baseURL}/health`, { timeout: 600 });
+      return { api, seq: res.data.seq, role: res.data.role || 0 };
+    } catch {
+      return null;
+    }
+  });
+
+  // Get all non-null results
+  const results = (await Promise.all(checks)).filter(r => r !== null);
+
+  if (results.length < R) {
+    leaderFallback = true;
+    console.warn(`[API] Falling back to leader. Only ${results.length}/${N} nodes responded.`);
+    return leaderApi;
+  }
+
+  // Get most up-to-date sequence
+  const maxSeq = Math.max(...results.map(r => r.seq));
+
+  // Filter for up-to-date non-leader nodes
+  const upToDateNodes = results.filter(r => r.seq === maxSeq && r.role !== 'leader');
+
+  if (upToDateNodes.length === 0) {
+    console.log(`[API] Falling back to leader. Only leader is up-to-date.`);
+    return leaderApi;
+  }
+
+  // Select node with round-robin
+  const selected = upToDateNodes[index++ % upToDateNodes.length];
+  return selected.api;
 }
 
 // ─── Dynamic leader/follower management (called by SSE event handler in App.jsx) ─
@@ -64,6 +113,7 @@ export function setLeaderUrl(url) {
   const base = normalizeUrl(url);
   leaderApi.defaults.baseURL = base
   isInitialized = true;
+  removeFollower(base);
   console.log(`[Frontend] Leader discovered: ${base}`)
   resolveInit();
 }
@@ -75,7 +125,7 @@ export function getLeaderUrl() {
 export function removeFollower(url) {
   const base = normalizeUrl(url);
   apis = apis.filter(api => api.defaults.baseURL !== base);
-  console.log(`[Frontend] Removing follower: ${base}`)
+  console.log(`[Frontend] Removing follower: ${base}`);
 }
 
 export function addFollower(url) {
