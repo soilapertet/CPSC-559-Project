@@ -30,11 +30,11 @@ export const getBorrowHistory = async (req, res) => {
 
 export const borrowBook = async (req, res) => {
   try {
-    const { userId, bookId } = req.body;
+    const { userId, bookId, request_id } = req.body;
 
     // Validate input
-    if (!userId || !bookId) {
-      return res.status(400).json({ error: "userId and bookId are required" });
+    if (!userId || !bookId || !request_id ) {
+      return res.status(400).json({ error: "userId, bookId, and request_id are required" });
     }
 
     // Check if user exists
@@ -68,14 +68,33 @@ export const borrowBook = async (req, res) => {
 
     await transaction.save();
 
-    // Propagate to followers (leader only, fire-and-forget)
-    await propagateToFollowers('borrow', {
-      userId: user._id.toString(),
-      bookId: book._id.toString(),
-      transactionId: transaction._id.toString(),
-      dueDate: transaction.dueDate
-    });
+    try {
 
+      // Propagate to followers (leader only, fire-and-forget)
+      await propagateToFollowers(request_id, 'borrow', {
+        userId: user._id.toString(),
+        bookId: book._id.toString(),
+        transactionId: transaction._id.toString(),
+        dueDate: transaction.dueDate
+      });
+    } catch(err) {
+
+      // Rollback in case when quorum is not meant
+      console.log("[Leader] Quorum failed, rolling back to changes to database.");
+
+      // Update book inventory since borrow operation failed
+      book.availableCopies += 1;
+      await book.save();
+
+      // Delete borrow transaction from records
+      await Transaction.findByIdAndDelete(transaction._id);
+
+      return res.status(503).json({
+        error: "Borrow operation could not be completed. Please try again.",
+        request_id
+      });
+    }
+    
     res.status(200).json({
       message: "Book borrowed successfully",
       transaction

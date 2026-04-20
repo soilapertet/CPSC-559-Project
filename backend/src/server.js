@@ -16,9 +16,7 @@ import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
 
 import { initializeCounter, initializeSeq } from "./replication/leader.js";
-
-// Create a connection to the MongoDB instance
-connectDB();
+import { initializeFollowerState } from "./replication/follower.js";
 
 const app = express();
 app.use(cors());
@@ -48,19 +46,30 @@ app.use("/election", electionRoutes);
 // Add an endpoint for frontend to receive real-time updates
 app.use("/events", eventRoute);
 
-app.listen(config.port, () => {
+async function startServer() {
 
-  console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+  // Create a connection to the MongoDB instance
+  await connectDB();
 
+  // Initialize sequence number to the latest sequence number logged to the db
   if (config.role === "leader") {
-    // Initialize sequence number and counter to the latest sequence number logged to the db
     await initializeCounter();
   }
 
-  // Initiate leader election on server setup
-  setTimeout(() => {
-    startInitialElection();
-  }, 2000);
+  // Initialize follower state
+  await initializeFollowerState();
 
-});
+  app.listen(config.port, () => {
 
+    console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+
+    // Initiate leader election on server setup
+    setTimeout(() => {
+      startInitialElection();
+    }, 2000);
+
+  });
+
+}
+
+startServer();

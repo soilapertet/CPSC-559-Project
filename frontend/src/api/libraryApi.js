@@ -181,12 +181,12 @@ export async function registerUser(firstName, lastName, userName, email) {
   return response.data
 }
 
-export async function borrowBook(userId, bookId) {
-  return leaderApi.post('/books/borrow', { userId, bookId })
+export async function borrowBook(userId, bookId, request_id) {
+  return leaderApi.post('/books/borrow', { userId, bookId, request_id })
 }
 
-export async function returnBook(userId, bookId) {
-  return leaderApi.post('/books/return', { userId, bookId })
+export async function returnBook(userId, bookId, request_id) {
+  return leaderApi.post('/books/return', { userId, bookId, request_id })
 }
 
 export async function getActiveBorrows(userId) {

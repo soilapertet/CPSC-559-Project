@@ -15,150 +15,13 @@ let pendingQueue = [];
 // Add flag to keep track of syncing status
 let isSyncing = false;
 
-const executeOperation = async (request_id, operation, seq, data) => {
-  if (operation === 'createUser') {
-
-    // Create user with the same _id as the leader so userId references stay consistent
-    await User.create({
-      _id: data._id,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      userName: data.userName,
-      email: data.email
-    });
-
-    // Create and save a new operation log entry to db
-    await OperationLog.create({
-      seq,
-      request_id,
-      operation,
-      data,
-    });
-
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: createUser (${data.userName})`);
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
-  }
-
-  else if (operation === 'borrow') {
-    // Decrement availableCopies on this node's book
-    await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: -1 } });
-
-    // Create transaction with the same _id as the leader
-    await Transaction.create({
-      _id: data.transactionId,
-      userId: data.userId,
-      bookId: data.bookId,
-      status: 'borrowed',
-      dueDate: new Date(data.dueDate)
-    });
-
-    // Create and save a new operation log entry to db
-    await OperationLog.create({
-      seq,
-      request_id,
-      operation,
-      data,
-    });
-
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: borrow (book ${data.bookId})`);
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
-
-  }
-
-  else if (operation === 'return') {
-    // Update transaction status
-    await Transaction.findByIdAndUpdate(data.transactionId, {
-      status: 'returned',
-      returnedAt: new Date(data.returnedAt)
-    });
-
-    // Increment availableCopies on this node's book
-    await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: 1 } });
-
-    // Create and save a new operation log entry to db
-    await OperationLog.create({
-      seq,
-      request_id,
-      operation,
-      data,
-    });
-
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: return (book ${data.bookId})`);
-    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
-
-  }
-
-  else {
-    console.warn(`[Follower:${config.port}] Unknown operation: ${operation}`);
-  }
-
-}
-
-const applyOperation = async (request_id, operation, data, seq) => {
-
-  // Get the last applied operation log
+// Retrieve the last applied write operation and its corresponding write operation
+export async function initializeFollowerState() {
   const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
-
-  // Get the last applied sequence number (default to 0)
   lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
 
-  console.log(`[DEBUG] Last Applied Sequence Number: ${lastAppliedSeq}`);
-  console.log(`[DEBUG] Circulating Sequence Number: ${seq}`);
-
-  // Check if operation was already applied
-  if (seq <= lastAppliedSeq) {
-    console.warn(`[Follower:${config.port}] Duplicate detected. Ignoring seq: ${seq}`);
-    return;
-  }
-
-  // Check if operation wasn't applied, add to queue and sort by sequence number
-  if (seq > lastAppliedSeq + 1) {
-    console.log(`[Follower:${config.port}] Gap detected. Queuing seq: ${seq}`);
-    pendingQueue.push({ operation, data, seq });
-    pendingQueue.sort((a, b) => a.seq - b.seq);
-    return;
-  }
-
-  // Apply current operation
-  try {
-    console.log(`[Follower:${config.port} Applying seq: ${seq}]`);
-    await executeOperation(request_id, operation, seq, data);
-    lastAppliedSeq = seq;
-
-    // Check if pending queue has next sequences
-    while (pendingQueue.length > 0 && pendingQueue[0].seq === lastAppliedSeq + 1) {
-      const nextOp = pendingQueue.shift();
-      console.log(`[Follower:${config.port}] Applying queued seq: ${nextOp.seq}`);
-      await executeOperation(nextOp.operation, nextOp.seq, nextOp.data);
-      lastAppliedSeq = nextOp.seq;
-    }
-  } catch (err) {
-    console.error(`[Follower:${config.port}] Error applying seq ${seq}: ${err.message}`);
-    throw err;
-  }
-
+  console.log(`[Follower:${config.port}] Initialized lastAppliedSeq = ${lastAppliedSeq}`);
 }
-
-export const handleReplicate = async (req, res) => {
-  const { request_id, operation, data, seq, timestamp } = req.body;
-
-  console.log(`[Follower:${config.port}] Received replication: '${operation}' at ${timestamp}`);
-
-  try {
-    await applyOperation(request_id, operation, data, seq);
-
-    res.status(200).json({
-      message: 'ACK',
-      request_id,
-      operation,
-      seq,
-      port: config.port
-    });
-  } catch (err) {
-    console.error(`[Follower:${config.port}] Replication error for '${operation}': ${err.message}`);
-    res.status(500).json({ error: err.message });
-  }
-};
 
 export const syncFromLeader = async (leaderUrl) => {
 
@@ -172,12 +35,6 @@ export const syncFromLeader = async (leaderUrl) => {
   isSyncing = true;
 
   try {
-
-    // Get the last applied operation log
-    const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
-
-    // Get the last applied sequence number (default to 0)
-    lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
 
     // Fetch missed operations from current leader
     const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
@@ -195,11 +52,11 @@ export const syncFromLeader = async (leaderUrl) => {
       try {
 
         console.log(`[Syncing Node ${config.port} Applying seq: ${log.seq}]`);
-        await applyOperation(log.operation, log.data, log.seq);
+        await applyOperation(log.seq, log.request_id, log.operation, log.data);
         console.log(`[Syncing Node ${config.port}] Successfully applied missed operation. Applied seq: ${log.seq}`);
 
       } catch (err) {
-        throw new Error(`Error occured while applying seq ${seq}: ${err}`);
+        throw new Error(`Error occured while applying seq ${log.seq}: ${err.message}`);
       }
     }
   } catch (err) {
@@ -209,3 +66,156 @@ export const syncFromLeader = async (leaderUrl) => {
     isSyncing = false;
   }
 }
+
+const executeOperation = async (seq, request_id, operation, data) => {
+  if (operation === 'createUser') {
+
+    // Create user with the same _id as the leader so userId references stay consistent
+    await User.create({
+      _id: data._id,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      userName: data.userName,
+      email: data.email
+    });
+
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: createUser (${data.userName})`);
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+  }
+
+  else if (operation === 'borrow') {
+    // Decrement availableCopies on this node's book
+    await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: -1 } });
+
+    // Create transaction with the same _id as the leader
+    await Transaction.updateOne(
+      { _id: data.transactionId },
+      {
+        $set : {
+          userId: data.userId,
+          bookId: data.bookId,
+          status: 'borrowed',
+          dueDate: new Date(data.dueDate)
+        }
+      },
+      { upsert : true }
+    );
+
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: borrow (book ${data.bookId})`);
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+
+  }
+
+  else if (operation === 'return') {
+    // Update transaction status
+    await Transaction.findByIdAndUpdate(data.transactionId, {
+      status: 'returned',
+      returnedAt: new Date(data.returnedAt)
+    });
+
+    // Increment availableCopies on this node's book
+    await Book.findByIdAndUpdate(data.bookId, { $inc: { availableCopies: 1 } });
+
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: return (book ${data.bookId})`);
+    console.log(`[Follower:${config.port}] Applied seq ${seq}: Logged new operation (${operation})`);
+
+  }
+
+  else {
+    console.warn(`[Follower:${config.port}] Unknown operation: ${operation}`);
+  }
+
+}
+
+const applyOperation = async (seq, request_id, operation, data) => {
+
+  // Check if request is a duplicate write operation
+  const existingWrite = await OperationLog.findOne({ request_id });
+
+  if (existingWrite && existingWrite.seq === seq) {
+    console.log(`[Follower ${config.port}] Duplicate request id ${request_id} detected. Ignoring request.`);
+    return;
+  }
+
+  console.log(`[DEBUG] Last Applied Sequence Number: ${lastAppliedSeq}`);
+  console.log(`[DEBUG] Circulating Sequence Number: ${seq}`);
+
+  // Check if operation was already applied
+  if (seq <= lastAppliedSeq) {
+    console.log(`[Follower:${config.port}] Old seq ${seq} ignored`);
+    return;
+  }
+
+  // Check if operation wasn't applied, add to queue and sort by sequence number
+  if (seq > lastAppliedSeq + 1) {
+    console.log(`[Follower:${config.port}] Gap detected. Queuing seq: ${seq}`);
+    pendingQueue.push({ seq, request_id, operation, data });
+    pendingQueue.sort((a, b) => a.seq - b.seq);
+
+    // Sync follower node with leader since a gap is detected in the write operation
+    if (!isSyncing) {
+      await syncFromLeader(config.leaderUrl);
+    }
+
+    return;
+  }
+
+  // Apply current operation
+  try {
+    console.log(`[Follower:${config.port} Applying seq: ${seq}]`);
+    await executeOperation(seq, request_id, operation, data);
+    lastAppliedSeq = seq;
+
+    // Create and save a new operation log entry to db and mark write operation as committed
+    await OperationLog.create({
+      seq,
+      request_id,
+      operation,
+      data,
+      committed: true,
+    });
+
+    // Check if pending queue has next sequences
+    while (pendingQueue.length > 0 && pendingQueue[0].seq === lastAppliedSeq + 1) {
+      const nextOp = pendingQueue.shift();
+      console.log(`[Follower:${config.port}] Applying queued seq: ${nextOp.seq}`);
+      await executeOperation(nextOp.seq, nextOp.request_id, nextOp.operation, nextOp.data);
+      lastAppliedSeq = nextOp.seq;
+
+      // Create and save a new operation log entry to db and mark write operation as committed
+      await OperationLog.create({
+        seq: nextOp.seq,
+        request_id: nextOp.request_id,
+        operation: nextOp.operation,
+        data: nextOp.data,
+        committed : true
+      });
+
+    }
+  } catch (err) {
+    console.error(`[Follower:${config.port}] Error applying seq ${seq}: ${err.message}`);
+    throw err;
+  }
+
+}
+
+export const handleReplicate = async (req, res) => {
+  const { seq, request_id, operation, data, timestamp } = req.body;
+
+  console.log(`[Follower:${config.port}] Received replication: '${operation}' at ${timestamp}`);
+
+  try {
+    await applyOperation(seq, request_id, operation, data);
+
+    res.status(200).json({
+      message: 'ACK',
+      seq,
+      request_id,
+      operation,
+      port: config.port
+    });
+  } catch (err) {
+    console.error(`[Follower:${config.port}] Replication error for '${operation}': ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+};

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useUser } from '../context/UserContext'
 import { borrowBook } from '../api/libraryApi'
 import AuthModal from './AuthModal'
@@ -17,15 +18,13 @@ export default function BorrowModal({ book, onClose, onSuccess }) {
   async function handleConfirm() {
     setError('')
     setLoading(true)
+    const request_id = uuidv4();
     try {
-      const res = await borrowBook(userId, book._id)
-      if (res.data?.message === 'Book borrowed successfully') {
-        onSuccess()
-      } else {
-        setError(res.data?.error || 'Failed to borrow book.')
-      }
+      const res = await borrowBook(userId, book._id, request_id);
+      onSuccess()
     } catch (err) {
-      setError(err.response?.data?.error || 'Server error. Please try again.')
+      const message = err.response?.data?.error || 'Failed to borrow book. Please try again.';
+      setError(message)
     } finally {
       setLoading(false)
     }

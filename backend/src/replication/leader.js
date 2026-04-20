@@ -28,12 +28,18 @@ export async function logOperation(request_id, operation, data) {
         const existingWriteOp = await OperationLog.findOne({ request_id });
 
         if (existingWriteOp) {
-            if(existingWriteOp.committed) {
-                return existingWriteOp.seq;
+            if (existingWriteOp.committed) {
+                return {
+                    seq: existingWriteOp.seq,
+                    committed: true
+                };
             } else {
                 // return sequence number if this is a retry write operation
-                console.log(`[Leader] Retrying uncommitted write operation ${request_id}`);
-                return existingWriteOp.seq;
+                console.log(`[Leader] Retrying uncommitted write request ${request_id}`);
+                return {
+                    seq: existingWriteOp.seq,
+                    committed: false
+                };
             }
         }
 
@@ -50,7 +56,10 @@ export async function logOperation(request_id, operation, data) {
             committed: false,
         });
 
-        return seq;
+        return {
+            seq, 
+            committed: false
+        };
 
     } catch (err) {
         console.log(`Error occured while logging ${operation} operation: ${err}`);
@@ -179,7 +188,15 @@ export async function propagateToFollowers(request_id, operation, data) {
     // Get the active follower nodes
     const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
-    const seq = await logOperation(request_id, operation, data);
+    const { seq, committed }= await logOperation(request_id, operation, data);
+
+    // Check if retry write operation successed before re-running replication
+    if (committed) {
+        console.log(`[Leader] Request ${request_id} already committed. Returning success message.`);
+        return { seq };
+    } else {
+        console.log(`[Leader] Resuming replication for request ${request_id}.`);
+    }
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
@@ -190,10 +207,10 @@ export async function propagateToFollowers(request_id, operation, data) {
                 headers: { 'Content-Type': 'application/json' },
                 signal: AbortSignal.timeout(TIMEOUT),
                 body: JSON.stringify({
+                    seq,
                     request_id,
                     operation,
                     data,
-                    seq,
                     timestamp: new Date().toISOString()
                 })
             }).then(res => {
