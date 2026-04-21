@@ -60,9 +60,10 @@ router.get('/', async (req, res) => {
             return res.status(400).json({ error: 'Invalid sequence number' });
         }
 
-        // Get all the operation logs such that seq > fromSeq (all missed write operations)
+        // Get all the operation logs such that seq > fromSeq and committed (all missed committed write operations)
         const missedLogs = await OperationLog.find({
-            seq: { $gt: fromSeq }
+            seq: { $gt: fromSeq },
+            committed: true
         }).sort({ seq: 1 });
 
         res.status(200).json(

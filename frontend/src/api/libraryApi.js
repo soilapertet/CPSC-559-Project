@@ -4,7 +4,7 @@ import axios from 'axios'
 export const ALL_NODE_URLS = [
   'http://100.116.122.12:3001',
   'http://100.123.38.106:3002',
-  'http://100.122.74.20:3003',
+  'http://100.122.74.20:3003'
 ]
 
 // Generate a dynamic dictionary where key = URL and value = axios instance

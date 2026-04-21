@@ -25,43 +25,30 @@ export const returnBook = async (req, res) => {
       });
     }
 
-    // Update transaction
-    transaction.status = "returned";
-    transaction.returnedAt = new Date();
-
-    await transaction.save();
-
-    // Increase available copies
-    const book = await Book.findById(bookId);
-
-    if (book) {
-      book.availableCopies += 1;
-      await book.save();
-    }
-
     try {
-      // Propagate to followers (leader only, fire-and-forget)
+      // Propagate to followers first (leader only)
       await propagateToFollowers(request_id, 'return', {
         transactionId: transaction._id.toString(),
         bookId: bookId.toString(),
-        returnedAt: transaction.returnedAt
+        returnedAt: new Date()
       });
-    } catch (err) {
 
-      // Rollback in case when quorum is not meant
-      console.log("[Leader] Quorum failed, rolling back changes to database.");
+      // Update transaction
+      transaction.status = "returned";
+      transaction.returnedAt = new Date();
 
-      if (book) {
-        // Update book inventory since borrow operation failed
-        book.availableCopies -= 1;
-        await book.save();
-      }
-
-      // Revert transaction record to borrow status
-      transaction.status = "borrowed";
-      transaction.returnedAt = null;
       await transaction.save();
 
+      // Increase available copies
+      const book = await Book.findById(bookId);
+
+      if (book) {
+        book.availableCopies += 1;
+        await book.save();
+      }
+    } catch (err) {
+
+      // No rollback needed since we propagate first, and if fails, we don't apply
       return res.status(503).json({
         error: "Error occurred while returning book. Please try again.",
         request_id

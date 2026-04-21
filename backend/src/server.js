@@ -72,7 +72,7 @@ async function startServer() {
     // Initiate leader election on server setup
     setTimeout(() => {
       startInitialElection();
-    }, 8000);
+    }, 2000);
 
   });
 

@@ -48,25 +48,29 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Create new user
-    const newUser = new User({
-      firstName,
-      lastName,
-      userName,
-      email: normalizedEmail
-    });
-
-    await newUser.save({ session });
+    // Generate user ID
+    const userId = new mongoose.Types.ObjectId();
 
     try {
-      // Propagate to followers (leader only, fire-and-forget)
+      // Propagate to followers first (leader only)
       await propagateToFollowers(request_id, 'createUser', {
-        _id: newUser._id.toString(),
+        _id: userId.toString(),
         firstName,
         lastName,
         userName,
         email: normalizedEmail
       });
+
+      // Create new user
+      const newUser = new User({
+        _id: userId,
+        firstName,
+        lastName,
+        userName,
+        email: normalizedEmail
+      });
+
+      await newUser.save({ session });
 
       await session.commitTransaction();
 
@@ -76,7 +80,7 @@ export const createUser = async (req, res) => {
       });
     } catch (err) {
 
-      console.error("[Leader] Quorum failed, rolling back changes to database.");
+      console.error("[Leader] Quorum failed, aborting transaction.");
       await session.abortTransaction();
 
       return res.status(503).json({

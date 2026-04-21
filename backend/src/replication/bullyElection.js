@@ -268,6 +268,9 @@ export async function startInitialElection() {
             const infoRes = await fetch(`${url}/election/leader-info`);
             if (!infoRes.ok) continue;
             const info = await infoRes.json();
+
+            console.log(`[Election:${myId()}] Checking leader-info from ${url}: ${JSON.stringify(info)}`);
+            
             if (info?.leaderUrl) {
                 state.currentLeaderUrl = info.leaderUrl;
                 config.role = 'follower';

@@ -1,4 +1,5 @@
 // Handles logic for borrowing transactions.
+import mongoose from "mongoose";
 import Book from "../models/Book.js";
 import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
@@ -90,12 +91,24 @@ export const borrowBook = async (req, res) => {
         return res.status(400).json({ error: "No copies available" });
       }
 
+      // Generate transaction ID
+      const transactionId = new mongoose.Types.ObjectId();
+
+      // Propagate to followers first (leader only)
+      await propagateToFollowers(request_id, 'borrow', {
+        userId: user._id.toString(),
+        bookId: bookId.toString(),
+        transactionId: transactionId.toString(),
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 2 weeks
+      });
+
       // Decrease available copies
       lockedBook.availableCopies -= 1;
       await lockedBook.save();
 
       // Create transaction record
       transaction = new Transaction({
+        _id: transactionId,
         userId: user._id,
         bookId: bookId,
         status: "borrowed",
@@ -103,14 +116,6 @@ export const borrowBook = async (req, res) => {
       });
 
       await transaction.save();
-
-      // Propagate to followers (leader only, fire-and-forget)
-      await propagateToFollowers(request_id, 'borrow', {
-        userId: user._id.toString(),
-        bookId: bookId.toString(),
-        transactionId: transaction._id.toString(),
-        dueDate: transaction.dueDate
-      });
 
       res.status(200).json({
         message: "Book borrowed successfully",
