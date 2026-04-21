@@ -96,7 +96,7 @@ export async function getNextSeq() {
     const result = await Counter.findOneAndUpdate(
         { _id: "operation_log_seq" },
         { $inc: { value: 1 } },
-        { new: true, upsert: true }
+        { returnDocument: "after", upsert: true }
     );
 
     return result.value;

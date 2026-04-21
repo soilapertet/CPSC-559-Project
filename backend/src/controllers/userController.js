@@ -1,10 +1,12 @@
 // Handles logic for user registration and authentication.
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import OperationLog from "../models/OperationLog.js";
 import { propagateToFollowers } from "../replication/leader.js";
 
 // ================== Create User ==================
 export const createUser = async (req, res) => {
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -13,8 +15,20 @@ export const createUser = async (req, res) => {
 
     // Validate input
     if (!firstName || !lastName || !userName || !email || !request_id) {
+      await session.abortTransaction();
       return res.status(400).json({
         error: "firstName, lastName, userName, email, and request_id are required"
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if a duplicate user creation record already exists
+    const existingOp = await OperationLog.findOne({ request_id }).session(session);
+
+    if (existingOp && existingOp.committed) {
+      return res.status(200).json({
+        message: "User already created"
       });
     }
 
@@ -27,7 +41,7 @@ export const createUser = async (req, res) => {
     }
 
     // Check for duplicate email
-    const existingEmail = await User.findOne({ email }).session(session);
+    const existingEmail = await User.findOne({ email: normalizedEmail }).session(session);
     if (existingEmail) {
       return res.status(400).json({
         error: "Email already in use"
@@ -39,7 +53,7 @@ export const createUser = async (req, res) => {
       firstName,
       lastName,
       userName,
-      email
+      email: normalizedEmail
     });
 
     await newUser.save({ session });
@@ -51,7 +65,7 @@ export const createUser = async (req, res) => {
         firstName,
         lastName,
         userName,
-        email
+        email: normalizedEmail
       });
 
       await session.commitTransaction();
@@ -61,6 +75,7 @@ export const createUser = async (req, res) => {
         userId: newUser._id
       });
     } catch (err) {
+
       console.error("[Leader] Quorum failed, rolling back changes to database.");
       await session.abortTransaction();
 
@@ -70,14 +85,12 @@ export const createUser = async (req, res) => {
       })
     }
 
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
     await session.endSession();
   }
 };
-
 
 // ================== Login (No Passwords) ==================
 export const login = async (req, res) => {
