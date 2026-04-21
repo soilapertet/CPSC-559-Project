@@ -206,6 +206,11 @@ export async function handleLeaderMessage(leaderId, leaderUrl, leaderSeq) {
     const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
     const lastAppliedSeq = lastAppliedLog ? lastAppliedLog.seq : 0;
 
+    notifyFrontend({
+            type: 'new-leader',
+            url: leaderUrl,
+        });
+
     // Start syncing process with current leader if node is behind on logs
     if(!state.isLeader && lastAppliedSeq < leaderSeq) {
         
