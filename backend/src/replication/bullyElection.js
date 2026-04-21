@@ -258,7 +258,7 @@ function startFollowerHeartbeat() {
 
 // Initial Election 
 export async function startInitialElection() {
-
+    const me = myUrl();
     const knownNodes = config.nodes.filter(Boolean);
 
     let foundLeader = false;
@@ -274,6 +274,10 @@ export async function startInitialElection() {
             if (!infoRes.ok) continue;
             const info = await infoRes.json();
             if (info?.leaderUrl) {
+                if (info.leaderUrl == me) {
+                    declareLeader();
+                    break;
+                }
                 state.currentLeaderUrl = info.leaderUrl;
                 config.role = 'follower';
                 startFollowerHeartbeat();
