@@ -3,7 +3,7 @@ import { config } from '../config/config.js';
 import OperationLog from '../models/OperationLog.js';
 import { notifyFrontend } from '../routes/eventRoute.js';
 import { syncFromLeader } from './follower.js';
-import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats } from './leader.js';
+import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats, initializeCounter } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 5000;
@@ -139,6 +139,9 @@ async function declareLeader() {
     state.isRunningElection = false;
     config.role = 'leader';
 
+    // Initialize counter when becoming leader
+    await initializeCounter();
+    
     // Get the current log entry for new leader
     leaderLog = await OperationLog.findOne().sort({ seq: -1 });
     leaderSeq = leaderLog ? leaderLog.seq : 0;

@@ -190,6 +190,9 @@ export async function propagateToFollowers(request_id, operation, data) {
 
     const { seq, committed }= await logOperation(request_id, operation, data);
 
+    // Add a 2s delay to allow for manual crash of leader during mid-write
+    await new Promise(res => setTimeout(res, 2000));
+    
     // Check if retry write operation successed before re-running replication
     if (committed) {
         console.log(`[Leader] Request ${request_id} already committed. Returning success message.`);

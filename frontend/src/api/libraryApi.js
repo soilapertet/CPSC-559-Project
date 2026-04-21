@@ -28,7 +28,7 @@ export const NODE_URL_MAPPING = Object.fromEntries(
 const leaderApi = axios.create({
   baseURL: '',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 1500,
+  timeout: 10000,
 });
 
 // Dynamic pool of Axios instances for active follower nodes
@@ -107,6 +107,14 @@ async function getApi() {
   return selected.api;
 }
 
+async function getLeaderApi() {
+  if (!isInitialized) {
+    console.warn("[Frontend] Waiting for leader...");
+    await initializationPromise;
+  }
+  return leaderApi;
+}
+
 // ─── Dynamic leader/follower management (called by SSE event handler in App.jsx) ─
 
 export function setLeaderUrl(url) {
@@ -172,21 +180,25 @@ export async function searchBooks(q, type = 'Keyword') {
 }
 
 export async function loginUser(identifier) {
-  const response = await leaderApi.post('/books/user/login', { identifier })
+  const leader = await getLeaderApi();
+  const response = await leader.post('/books/user/login', { identifier })
   return response.data
 }
 
 export async function registerUser(firstName, lastName, userName, email) {
-  const response = await leaderApi.post('/books/user/createuser', { firstName, lastName, userName, email })
+  const leader = await getLeaderApi();
+  const response = await leader.post('/books/user/createuser', { firstName, lastName, userName, email })
   return response.data
 }
 
 export async function borrowBook(userId, bookId, request_id) {
-  return leaderApi.post('/books/borrow', { userId, bookId, request_id })
+  const leader = await getLeaderApi();
+  return leader.post('/books/borrow', { userId, bookId, request_id })
 }
 
 export async function returnBook(userId, bookId, request_id) {
-  return leaderApi.post('/books/return', { userId, bookId, request_id })
+  const leader = await getLeaderApi();
+  return leader.post('/books/return', { userId, bookId, request_id })
 }
 
 export async function getActiveBorrows(userId) {

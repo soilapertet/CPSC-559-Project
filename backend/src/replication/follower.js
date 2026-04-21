@@ -8,7 +8,7 @@ import Book from '../models/Book.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import OperationLog from '../models/OperationLog.js';
-
+import { getLeaderUrl } from './bullyElection.js';
 let lastAppliedSeq = 0;
 let pendingQueue = [];
 
@@ -154,7 +154,8 @@ const applyOperation = async (seq, request_id, operation, data) => {
 
     // Sync follower node with leader since a gap is detected in the write operation
     if (!isSyncing) {
-      await syncFromLeader(config.leaderUrl);
+      const leaderUrl = getLeaderUrl();
+      await syncFromLeader(leaderUrl);
     }
 
     return;

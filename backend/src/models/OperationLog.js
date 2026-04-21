@@ -8,7 +8,7 @@ const operationLogSchema = new Schema({
         unique : true,
     },
     request_id : {
-        type : Number,
+        type : String,
         required: true,
         unique : true,
     }, 

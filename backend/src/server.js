@@ -15,7 +15,7 @@ import syncRoutes from './routes/syncRoutes.js';
 import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
 
-import { initializeCounter, initializeSeq } from "./replication/leader.js";
+import { initializeCounter } from "./replication/leader.js";
 import { initializeFollowerState } from "./replication/follower.js";
 
 const app = express();
@@ -46,15 +46,21 @@ app.use("/election", electionRoutes);
 // Add an endpoint for frontend to receive real-time updates
 app.use("/events", eventRoute);
 
+// Add an endpoint to crash leader during mid-write for demo purposes
+app.post('/debug/crash', (req, res) => {
+  console.log("[DEBUG] Crashing leader...");
+  res.status(200).send('Crashing');
+
+  setTimeout(() => {
+    process.exit(1);
+  }, 100);
+});
+
+
 async function startServer() {
 
   // Create a connection to the MongoDB instance
   await connectDB();
-
-  // Initialize sequence number to the latest sequence number logged to the db
-  if (config.role === "leader") {
-    await initializeCounter();
-  }
 
   // Initialize follower state
   await initializeFollowerState();
