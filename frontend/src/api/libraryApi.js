@@ -185,9 +185,9 @@ export async function loginUser(identifier) {
   return response.data
 }
 
-export async function registerUser(firstName, lastName, userName, email) {
+export async function registerUser(firstName, lastName, userName, email, request_id) {
   const leader = await getLeaderApi();
-  const response = await leader.post('/books/user/createuser', { firstName, lastName, userName, email })
+  const response = await leader.post('/books/user/createuser', { firstName, lastName, userName, email, request_id })
   return response.data
 }
 

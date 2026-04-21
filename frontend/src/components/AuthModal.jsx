@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useUser } from '../context/UserContext'
 
 // Handles login-then-register flow.
@@ -12,6 +13,7 @@ export default function AuthModal({ onSuccess }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', userName: '', email: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [requestId, setRequestId] = useState(null)
 
   async function handleLogin() {
     setError('')
@@ -29,7 +31,7 @@ export default function AuthModal({ onSuccess }) {
         setStep('register')
         setForm(f => ({ ...f, userName: identifier.trim() }))
       } else if (!err.response) {
-        setError('Cannot reach the server. Is the backend running on port 5000?')
+        setError('Cannot reach the server.')
       } else {
         setError(err.response?.data?.error || 'Login failed. Please try again.')
       }
@@ -40,6 +42,14 @@ export default function AuthModal({ onSuccess }) {
 
   async function handleRegister() {
     setError('')
+
+    // Generate request id for register request (only one)
+    let id = requestId;
+    if (!id) {
+      id = uuidv4();
+      setRequestId(id);
+    }
+
     const { firstName, lastName, userName, email } = form
     if (!firstName.trim() || !lastName.trim() || !userName.trim() || !email.trim()) {
       setError('All fields are required.')
@@ -47,7 +57,7 @@ export default function AuthModal({ onSuccess }) {
     }
     setLoading(true)
     try {
-      await register(firstName.trim(), lastName.trim(), userName.trim(), email.trim())
+      await register(firstName.trim(), lastName.trim(), userName.trim(), email.trim(), id)
       onSuccess()
     } catch (err) {
       setError(err.response?.data?.error || 'Registration failed. Please try again.')
