@@ -26,7 +26,7 @@ function myId() {
 }
 
 function myUrl() {
-    return `http://localhost:${config.port}`;
+    return config.nodes.find(url => new URL(url).port == config.port);
 }
 
 // All known nodes: leader and followers

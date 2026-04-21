@@ -13,9 +13,6 @@ export const config = {
         process.env.NODE0_URL,
         process.env.NODE1_URL,
         process.env.NODE2_URL,
-        process.env.NODE3_URL,
-        process.env.NODE4_URL,
-        process.env.NODE5_URL,
     ],
     
     mongo_uri: process.env.MONGODB_URI,

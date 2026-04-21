@@ -2,12 +2,9 @@ import axios from 'axios'
 
 // All known node URLs — used to poll for new leader during election
 export const ALL_NODE_URLS = [
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://localhost:3004',
-  'http://localhost:3005',
-  'http://localhost:3006',
+  'http://100.122.74.20:3001',
+  'http://100.123.38.106:3002',
+  'http://100.116.122.12:3003'
 ]
 
 // Generate a dynamic dictionary where key = URL and value = axios instance
@@ -20,7 +17,7 @@ export const NODE_URL_MAPPING = Object.fromEntries(
     axios.create({
       baseURL: url,
       headers: { 'Content-Type': 'application/json' },
-      timeout: 1500,
+      timeout: 5000,
     })
   ])
 );
