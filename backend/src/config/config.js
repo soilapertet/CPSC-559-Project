@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 const env = process.env.NODE_ENV;
-dotenv.config({ path: path.resolve(`./env/${env}.env`), override: true });
+dotenv.config({ path: path.resolve(`./env/.env`), override: true });
 
 export const config = {
     role: process.env.ROLE,

@@ -65,14 +65,14 @@ async function startServer() {
   // Initialize follower state
   await initializeFollowerState();
 
-  app.listen(config.port, () => {
+  app.listen(config.port, '0.0.0.0', () => {
 
     console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
 
     // Initiate leader election on server setup
     setTimeout(() => {
       startInitialElection();
-    }, 2000);
+    }, 8000);
 
   });
 
