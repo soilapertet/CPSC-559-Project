@@ -38,7 +38,15 @@ const bookSchema = new Schema({
         type : Number,
         required : true,
         min : 0
-    }
+    },
+    locked : {
+        type: Boolean,
+        default: false
+    },
+    lockTimeStamp: {
+        type: Date,
+        default: null
+    },
 },
     { timestamps : true }
 );

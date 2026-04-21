@@ -2,6 +2,7 @@ export async function retryRequest(fn, retries = 2, delay = 500) {
 
     for (let i = 0; i <= retries; i++) {
         try {
+            await new Promise(res => setTimeout(res, 1000));
             return await fn();
         } catch (err) {
 

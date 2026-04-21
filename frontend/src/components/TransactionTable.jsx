@@ -43,7 +43,7 @@ export default function TransactionTable({ transactions, onReturn, showReturnBut
                   {tx.status === 'borrowed' && (
                     <button
                       onClick={() => onReturn(tx.bookId._id)}
-                      className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg transition-colors"
+                      className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Return
                     </button>
