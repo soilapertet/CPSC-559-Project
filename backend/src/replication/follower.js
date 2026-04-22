@@ -36,6 +36,9 @@ export const syncFromLeader = async (leaderUrl) => {
 
   try {
 
+    console.log(`[DEBUG] LAST APPLIED SEQ: ${lastAppliedSeq}`);
+    console.log(`[DEBUG] SYNC URL: ${leaderUrl}/sync?from=${lastAppliedSeq}`);
+
     // Fetch missed operations from current leader
     const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
 
@@ -44,7 +47,8 @@ export const syncFromLeader = async (leaderUrl) => {
     }
 
     const response = await res.json();
-    const missedLogs = response.data || [];
+    const missedLogs = response.data;
+    console.log(`[DEBUG] # OF MISSED LOGS: ${missedLogs.length}`)
 
     for (const log of missedLogs) {
 
@@ -91,14 +95,14 @@ const executeOperation = async (seq, request_id, operation, data) => {
     await Transaction.updateOne(
       { _id: data.transactionId },
       {
-        $set : {
+        $set: {
           userId: data.userId,
           bookId: data.bookId,
           status: 'borrowed',
           dueDate: new Date(data.dueDate)
         }
       },
-      { upsert : true }
+      { upsert: true }
     );
 
     console.log(`[Follower:${config.port}] Applied seq ${seq}: borrow (book ${data.bookId})`);
@@ -130,22 +134,52 @@ const executeOperation = async (seq, request_id, operation, data) => {
 const applyOperation = async (seq, request_id, operation, data) => {
 
   // Check if request is a duplicate write operation
-  const existingWrite = await OperationLog.findOne({ request_id });
+  // const existingWrite = await OperationLog.findOne({ request_id });
+  // const existingWrite = await OperationLog.findOne({ seq });
 
-  if (existingWrite && existingWrite.seq === seq) {
-    console.log(`[Follower ${config.port}] Duplicate request id ${request_id} detected. Ignoring request.`);
-    return;
-  }
+  // if (existingWrite) {
+  //   console.log(`[Follower ${config.port}] Duplicate request id ${request_id} detected. Ignoring request.`);
+  //   return;
+  // }
 
   console.log(`[DEBUG] Last Applied Sequence Number: ${lastAppliedSeq}`);
   console.log(`[DEBUG] Circulating Sequence Number: ${seq}`);
 
   // Check if operation was already applied
-  if (seq <= lastAppliedSeq) {
-    console.log(`[Follower:${config.port}] Old seq ${seq} ignored`);
+  // if (seq <= lastAppliedSeq) {
+  //   console.log(`[Follower:${config.port}] Old seq ${seq} ignored`);
+  //   return;
+  // }
+
+  const existingSeq = await OperationLog.findOne({ seq });
+
+  if (existingSeq) {
+    if (existingSeq.committed) {
+      console.log(`[Follower:${config.port}] Seq ${seq} already committed. Skipping.`);
+      return;
+    }
+
+    // 🔥 CRITICAL CASE: same seq but uncommitted → FIX IT
+    console.log(`[Follower:${config.port}] Fixing uncommitted seq ${seq}`);
+
+    await executeOperation(seq, request_id, operation, data);
+
+    await OperationLog.updateOne(
+      { seq },
+      {
+        $set: {
+          request_id,
+          operation,
+          data,
+          committed: true
+        }
+      }
+    );
+
+    lastAppliedSeq = Math.max(lastAppliedSeq, seq);
     return;
   }
-
+  
   // Check if operation wasn't applied, add to queue and sort by sequence number
   if (seq > lastAppliedSeq + 1) {
     console.log(`[Follower:${config.port}] Gap detected. Queuing seq: ${seq}`);
@@ -166,6 +200,8 @@ const applyOperation = async (seq, request_id, operation, data) => {
     console.log(`[Follower:${config.port} Applying seq: ${seq}]`);
     await executeOperation(seq, request_id, operation, data);
     lastAppliedSeq = seq;
+
+    console.log("[DEBUG] LOGGING IN MISSED WRITE OPERATION. ");
 
     // Create and save a new operation log entry to db and mark write operation as committed
     await OperationLog.create({
@@ -189,7 +225,7 @@ const applyOperation = async (seq, request_id, operation, data) => {
         request_id: nextOp.request_id,
         operation: nextOp.operation,
         data: nextOp.data,
-        committed : true
+        committed: true
       });
 
     }

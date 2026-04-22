@@ -11,7 +11,7 @@ router.post('/sync-request', async (req, res) => {
 
     try {
         let leaderUrl = req.body.leaderUrl || getLeaderUrl();
-        let retries = 5; 
+        let retries = 5;
 
         // Poll more aggressively during recovery
         while (!leaderUrl && retries > 0) {
@@ -52,6 +52,9 @@ router.post('/sync-request', async (req, res) => {
 router.get('/', async (req, res) => {
 
     try {
+
+        console.log("[DEBUG] RETRIEVING MISSED LOGS.");
+
         // Extract the sequence number from which we are recovering write operations
         const fromSeq = parseInt(req.query.from || 0);
 
@@ -62,8 +65,11 @@ router.get('/', async (req, res) => {
 
         // Get all the operation logs such that seq > fromSeq (all missed write operations)
         const missedLogs = await OperationLog.find({
-            seq: { $gt: fromSeq }
+            seq: { $gte: fromSeq },
+            committed: true
         }).sort({ seq: 1 });
+
+        console.log(`[DEBUG] NUMBER OF MISSED LOGS: ${missedLogs.length}`);
 
         res.status(200).json(
             {
