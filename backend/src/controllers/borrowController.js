@@ -30,6 +30,9 @@ export const getBorrowHistory = async (req, res) => {
 };
 
 export const borrowBook = async (req, res) => {
+
+  let prevCopies = null;
+
   try {
 
     const { userId, bookId, request_id } = req.body;
@@ -74,7 +77,7 @@ export const borrowBook = async (req, res) => {
             lockTimeStamp: new Date()
           }
         },
-        { returnDocument : "after" }
+        { returnDocument: "after" }
       );
 
       // Check if book is currently locked, or in the middle of a borrow transaction 
@@ -85,14 +88,12 @@ export const borrowBook = async (req, res) => {
         });
       }
 
+      prevCopies = lockedBook.availableCopies;
+
       // Check for available copies
       if (lockedBook.availableCopies <= 0) {
         return res.status(400).json({ error: "No copies available" });
       }
-
-      // Decrease available copies
-      lockedBook.availableCopies -= 1;
-      await lockedBook.save();
 
       // Create transaction record
       transaction = new Transaction({
@@ -102,8 +103,6 @@ export const borrowBook = async (req, res) => {
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 2 weeks
       });
 
-      await transaction.save();
-
       // Propagate to followers (leader only, fire-and-forget)
       await propagateToFollowers(request_id, 'borrow', {
         userId: user._id.toString(),
@@ -112,16 +111,24 @@ export const borrowBook = async (req, res) => {
         dueDate: transaction.dueDate
       });
 
+      // Decrease available copies
+      lockedBook.availableCopies -= 1;
+      await lockedBook.save();
+      await transaction.save();
+
+
       res.status(200).json({
         message: "Book borrowed successfully",
       });
 
     } catch (err) {
 
+      console.log(`[DEBUG] Error occurred while borrowing book: ${err}`);
+
       // Rollback in case when quorum is not meant
       console.log("[Leader] Quorum failed, rolling back to changes to database.");
 
-      if (lockedBook) {
+      if (lockedBook && lockedBook.availableCopies < prevCopies) {
         // Update book inventory since borrow operation failed
         lockedBook.availableCopies += 1;
         await lockedBook.save();

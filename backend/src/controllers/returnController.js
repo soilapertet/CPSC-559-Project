@@ -4,6 +4,9 @@ import Transaction from "../models/Transaction.js";
 import { propagateToFollowers } from "../replication/leader.js";
 
 export const returnBook = async (req, res) => {
+
+  let prevCopies = null;
+
   try {
     const { userId, bookId, request_id } = req.body;
 
@@ -29,29 +32,37 @@ export const returnBook = async (req, res) => {
     transaction.status = "returned";
     transaction.returnedAt = new Date();
 
-    await transaction.save();
-
-    // Increase available copies
+    // Find the book by the given book id
     const book = await Book.findById(bookId);
 
-    if (book) {
-      book.availableCopies += 1;
-      await book.save();
+    if (!book) {
+      return res.status(404).json({
+        error: "No such book could be found."
+      })
     }
 
+
+    prevCopies = book.availableCopies;
+
     try {
+
       // Propagate to followers (leader only, fire-and-forget)
       await propagateToFollowers(request_id, 'return', {
         transactionId: transaction._id.toString(),
         bookId: bookId.toString(),
         returnedAt: transaction.returnedAt
       });
+
+      book.availableCopies += 1;
+      await book.save();
+      await transaction.save();
+
     } catch (err) {
 
       // Rollback in case when quorum is not meant
       console.log("[Leader] Quorum failed, rolling back changes to database.");
 
-      if (book) {
+      if (book && book.availableCopies > prevCopies) {
         // Update book inventory since borrow operation failed
         book.availableCopies -= 1;
         await book.save();

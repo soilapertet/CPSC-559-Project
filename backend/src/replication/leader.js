@@ -57,7 +57,7 @@ export async function logOperation(request_id, operation, data) {
         });
 
         return {
-            seq, 
+            seq,
             committed: false
         };
 
@@ -147,7 +147,7 @@ async function handleRecoveredNode(recoveredUrl) {
             },
             body: JSON.stringify({ leaderUrl: leaderUrl })
         });
-        
+
 
         if (!res.ok) {
             let errorMessage = `Sync request failed: ${res.status}`;
@@ -191,16 +191,13 @@ export async function propagateToFollowers(request_id, operation, data) {
     // Get the active follower nodes
     const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
-    const log = await logOperation(request_id, operation, data);
-    const { seq, committed } = log;
-
     // Add a 2s delay to allow for manual crash of leader during mid-write
     await new Promise(res => setTimeout(res, 2000));
 
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
     const results = await Promise.allSettled(
-        activeURLS.map( async (url) => {
+        activeURLS.map(async (url) => {
             const res = await fetch(`${url.trim()}/replicate/ACK`, {
                 method: 'GET',
                 signal: AbortSignal.timeout(1000)
@@ -219,6 +216,10 @@ export async function propagateToFollowers(request_id, operation, data) {
 
     if (successCount >= W) {
 
+        // Log the write operation once quorum has been met
+        const log = await logOperation(request_id, operation, data);
+        const { seq, committed } = log;
+
         if (committed) {
             console.log(`[Leader] Request ${request_id} already committed. Returning success message.`);
             return { seq };
@@ -228,7 +229,7 @@ export async function propagateToFollowers(request_id, operation, data) {
 
         await markCommitted(seq);
         await Promise.allSettled(
-            activeURLS.map(url => 
+            activeURLS.map(url =>
                 fetch(`${url.trim()}/replicate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -245,15 +246,6 @@ export async function propagateToFollowers(request_id, operation, data) {
         )
         console.log(`[Leader] Sequence number ${seq} committed.`)
     } else {
-        console.log(`[Leader] Sequence number ${seq} NOT committed. Falling back to previous sequence.`);
-        
-        // Rollback log and sequence counter
-        await OperationLog.deleteOne({ seq: seq });
-        await Counter.findOneAndUpdate(
-            { _id: "operation_log_seq" },
-            { $inc: { value: -1 } }
-        );
-
         throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
 
