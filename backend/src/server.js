@@ -19,12 +19,7 @@ import { initializeCounter } from "./replication/leader.js";
 import { initializeFollowerState } from "./replication/follower.js";
 
 const app = express();
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // Requests to /user will be directed to the userRoutes.js module
@@ -77,7 +72,7 @@ async function startServer() {
     // Initiate leader election on server setup
     setTimeout(() => {
       startInitialElection();
-    }, 3000);
+    }, 8000);
 
   });
 

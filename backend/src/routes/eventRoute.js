@@ -11,13 +11,9 @@ router.get('/', (req, res) => {
 
     // Establish a connection stream to send real-time updates in the backend (new leader, dead leader, dead follower) 
     // to the frontend
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Mathods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
 
     // Get active followers
     const followers = getFollowerStatus();
