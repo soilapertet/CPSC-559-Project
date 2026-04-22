@@ -207,23 +207,13 @@ export async function propagateToFollowers(request_id, operation, data) {
     // Implement synchronous replication to ensure all operations have been applied
     // to the follower nodes before sending confirmation to the user
     const results = await Promise.allSettled(
-        activeURLS.map((url) =>
-            fetch(`${url.trim()}/replicate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(TIMEOUT),
-                body: JSON.stringify({
-                    seq,
-                    request_id,
-                    operation,
-                    data,
-                    timestamp: new Date().toISOString()
-                })
-            }).then(res => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res;
-            })
-        )
+        activeURLS.map( async (url) => {
+            const res = await fetch(`${url.trim()}/replicate/ACK`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(1000)
+            });
+            return res.ok;
+        })
     );
 
     // Quorum calculation
@@ -236,8 +226,27 @@ export async function propagateToFollowers(request_id, operation, data) {
 
     if (successCount >= W) {
         await markCommitted(seq);
+        await Promise.allSettled(
+            fetch(`${url.trim()}/replicate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(TIMEOUT),
+                body: JSON.stringify({
+                    seq,
+                    request_id,
+                    operation,
+                    data,
+                    timestamp: new Date().toISOString()
+                })
+            })
+        )
+        console.log(`[Leader] Sequence Number ${seq} committed.`)
     } else {
-        console.log(`[Leader] Sequence Number ${seq} NOT committed.`);
+        console.log(`[Leader] Sequence Number ${seq} NOT committed. Falling back to previous sequence.`);
+        const log = await OperationLog.find({ seq: seq });
+        if (log) {
+            await OperationLog.deleteOne({ seq: seq })
+        }
         throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
 

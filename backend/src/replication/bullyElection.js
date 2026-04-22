@@ -99,8 +99,11 @@ export async function initiateElection() {
     if (state.isRunningElection) return;
 
     console.log(`[Election:${myId()}] Starting election (Bully Algorithm).`);
-    state.isRunningElection = true;
+    state.currentLeaderUrl = null;
+    state.isRunningElection = false;
     state.receivedBully = false;
+    state.heartbeatTimer = null;
+    state.isLeader = false;
 
     const higher = higherNodes();
 
