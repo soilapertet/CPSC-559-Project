@@ -101,6 +101,7 @@ export async function initiateElection() {
     console.log(`[Election:${myId()}] Starting election (Bully Algorithm).`);
     state.isRunningElection = true;
     state.receivedBully = false;
+    state.currentLeaderUrl = null;
 
     const higher = higherNodes();
 
@@ -115,7 +116,8 @@ export async function initiateElection() {
     // Wait for bully responses
     await new Promise(resolve => setTimeout(resolve, ELECTION_TIMEOUT_MS));
 
-    if (!state.receivedBully && !state.currentLeaderUrl) {
+    if (!state.receivedBully && !state.isLeader && !state.currentLeaderUrl) {
+        state.receivedBully = false;
         console.log(`[Election:${myId()}] No bully received. I am the new leader!`);
         await declareLeader();
     } else if (state.receivedBully) {
@@ -127,6 +129,8 @@ export async function initiateElection() {
     // retry election if no leader appears
     setTimeout(async () => {
         if (!state.isLeader && !state.currentLeaderUrl) {
+            state.receivedBully = false;
+            state.isRunningElection = false;
             console.log(`[Election:${myId()}] No leader announced. Re-initiating election.`);
             await initiateElection();
         }
@@ -185,7 +189,7 @@ export function handleBullyMessage(fromId) {
 }
 
 export async function handleLeaderMessage(leaderId, leaderUrl, leaderSeq) {
-
+    console.log(`[DEBUG] Received URL: ${leaderUrl}`);
     console.log(`[Election:${myId()}] Received 'leader' announcement: Node ${leaderId} (${leaderUrl}). Current Seq ${leaderSeq}`);
 
     state.currentLeaderUrl = leaderUrl;
