@@ -139,12 +139,15 @@ function handleDeadFollower(deadUrl, port) {
 async function handleRecoveredNode(recoveredUrl) {
 
     try {
+        const leaderUrl = config.nodes.find(url => new URL(url).port == config.port)
         const res = await fetch(`${recoveredUrl}/sync/sync-request`, {
             method: 'POST',
             headers: {
                 'Content-type': 'application/json'
-            }
+            },
+            body: JSON.stringify({ leaderUrl: leaderUrl })
         });
+        
 
         if (!res.ok) {
             let errorMessage = `Sync request failed: ${res.status}`;
@@ -191,7 +194,7 @@ export async function propagateToFollowers(request_id, operation, data) {
     const { seq, committed }= await logOperation(request_id, operation, data);
 
     // Add a 2s delay to allow for manual crash of leader during mid-write
-    await new Promise(res => setTimeout(res, 2000));
+    // await new Promise(res => setTimeout(res, 2000));
     
     // Check if retry write operation successed before re-running replication
     if (committed) {

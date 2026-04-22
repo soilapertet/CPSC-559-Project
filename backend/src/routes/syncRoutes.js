@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/sync-request', async (req, res) => {
 
     try {
-        let leaderUrl = getLeaderUrl();
+        let leaderUrl = req.body.leaderUrl || getLeaderUrl();
         let retries = 5; 
 
         // Poll more aggressively during recovery
