@@ -175,87 +175,70 @@ async function handleRecoveredNode(recoveredUrl) {
 
 }
 
-export async function checkQuorum(request_id, operation, data) {
-    const lastAppliedLog = await OperationLog.findOne().sort({ seq: -1 });
-    const mySeq = lastAppliedLog ? lastAppliedLog.seq : 0;
+export async function propagateToFollowers(request_id, operation, data) {
 
+    if (config.role !== 'leader') return;
+
+    // Get the current follower nodes
     const followers = config.nodes.filter(url => {
         const port = new URL(url).port;
         return port != String(config.port);
     });
 
-    const activeFollowers = followers.filter(url => followerStatus.get(url)?.alive);
+    // Get the active follower nodes
+    const activeURLS = followers.filter(url => followerStatus.get(url)?.alive);
 
+    const { seq, committed }= await logOperation(request_id, operation, data);
+
+    // Add a 2s delay to allow for manual crash of leader during mid-write
+    await new Promise(res => setTimeout(res, 2000));
+    
+    // Check if retry write operation successed before re-running replication
+    if (committed) {
+        console.log(`[Leader] Request ${request_id} already committed. Returning success message.`);
+        return { seq };
+    } else {
+        console.log(`[Leader] Resuming replication for request ${request_id}.`);
+    }
+
+    // Implement synchronous replication to ensure all operations have been applied
+    // to the follower nodes before sending confirmation to the user
     const results = await Promise.allSettled(
-        activeFollowers.map(url => 
+        activeURLS.map((url) =>
             fetch(`${url.trim()}/replicate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ seq, request_id, operation, data, timestamp: new Date().toISOString() }),
-                signal: AbortSignal.timeout(1000) // Don't wait forever
+                signal: AbortSignal.timeout(TIMEOUT),
+                body: JSON.stringify({
+                    seq,
+                    request_id,
+                    operation,
+                    data,
+                    timestamp: new Date().toISOString()
+                })
             }).then(res => {
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.json();
+                return res;
             })
         )
     );
 
-    const acks = results.filter(r => r.message === 'ACK').length + 1;
-    const N = activeFollowers.length + 1;
-    const W = floor(N/2) + 1;
+    // Quorum calculation
+    const successCount = results.filter(r => r.status === 'fulfilled').length + 1;          // success counter should also include leader since it also made write operation
+    const N = activeURLS.length + 1;
+    const W = Math.floor(N / 2) + 1;
 
-    console.log(`[Leader] seq ${seq}: Received ${totalSuccessCount}/${N} ACKs. Quorum is ${W}.`);
-    
-    if (acks >= W) {
-        return {
-            success: true,
-            seq,
-            acks: acks,
-            urls: activeFollowers
-        }
-    } else {
-        return {
-            success: false,
-            seq,
-            acks: acks,
-            error: 'Quorum not achieved.'
-        }
-    }
-}
+    // Throw error if ACKs received is less than quorum threshold
+    console.log(`[Leader] seq ${seq}: Received ${successCount}/${N} ACKs. Quorum (W) is ${W}.`);
 
-export async function propagateToFollowers(request_id, operation, data) {
-    if (config.role !== 'leader') return;
-
-    const { seq, committed } = await logOperation(request_id, operation, data);
-
-    if (committed) {
-        return { seq };
-    }
-
-    // This sends the /replicate calls and waits for ACKs
-    const quorumResult = await checkQuorum(request_id, operation, data, seq);
-
-    if (!quorumResult.success) {
-    console.error(`[Leader] Quorum failed for seq ${seq}: ${quorumResult.error}`);
-        throw new Error(quorumResult.error);
-    } else {
-        console.log(`[Leader] Quorum achieved for seq ${seq}. Proceeding to commit.`);
-
+    if (successCount >= W) {
         await markCommitted(seq);
-
-        // We fire-and-forget the commit or wait for them
-        Promise.allSettled(
-            quorumResult.urls.map(url => 
-                fetch(`${url.trim()}/replicate/commit`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ seq, request_id, operation, data })
-                })
-            )
-        );
-
-        return { seq };
+    } else {
+        console.log(`[Leader] Sequence Number ${seq} NOT committed.`);
+        throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
+
+    return { seq };
 }
 
 // Ping Follower node to check health status

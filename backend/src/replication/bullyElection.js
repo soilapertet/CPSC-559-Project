@@ -101,7 +101,6 @@ export async function initiateElection() {
     console.log(`[Election:${myId()}] Starting election (Bully Algorithm).`);
     state.isRunningElection = true;
     state.receivedBully = false;
-    state.currentLeaderUrl = null;
 
     const higher = higherNodes();
 
@@ -116,8 +115,7 @@ export async function initiateElection() {
     // Wait for bully responses
     await new Promise(resolve => setTimeout(resolve, ELECTION_TIMEOUT_MS));
 
-    if (!state.receivedBully && !state.isLeader && !state.currentLeaderUrl) {
-        state.receivedBully = false;
+    if (!state.receivedBully && !state.currentLeaderUrl) {
         console.log(`[Election:${myId()}] No bully received. I am the new leader!`);
         await declareLeader();
     } else if (state.receivedBully) {
@@ -129,8 +127,6 @@ export async function initiateElection() {
     // retry election if no leader appears
     setTimeout(async () => {
         if (!state.isLeader && !state.currentLeaderUrl) {
-            state.receivedBully = false;
-            state.isRunningElection = false;
             console.log(`[Election:${myId()}] No leader announced. Re-initiating election.`);
             await initiateElection();
         }
@@ -138,37 +134,6 @@ export async function initiateElection() {
 }
 
 async function declareLeader() {
-    const nodeStatuses = await Promise.allSettled(
-        getAllNodes().map(async (n) => {
-            const res = await fetch(`${n.url}/election/leader-info`, { signal: AbortSignal.timeout(2000) });
-            const data = await res.json();
-            return { url: n.url, seq: data.lastAppliedSeq || 0 };
-        })
-    );
-
-    const successfulResponses = nodeStatuses
-        .filter(r => r.status === 'fulfilled')
-        .map(r => r.value);
-
-    const maxNode = successfulResponses.reduce((max, node) => 
-        (node.seq > max.seq) ? node : max, 
-        { url: null, seq: 0 }
-    );
-
-    // 3. Sync from the max node if it is ahead of me
-    const myCurrentLog = await OperationLog.findOne().sort({ seq: -1 });
-    const mySeq = myCurrentLog ? myCurrentLog.seq : 0;
-
-    if (maxNode.seq > mySeq && maxNode.url) {
-        console.log(`[Election:${myId()}] Node ${maxNode.url} is ahead (Seq: ${maxNode.seq}). Syncing...`);
-        try {
-            // Import your syncFromLeader function here
-            await syncFromLeader(maxNode.url);
-        } catch (err) {
-            console.error(`[Election:${myId()}] Failed to sync from max node: ${err.message}`);
-        }
-    }
-
     state.currentLeaderUrl = myUrl();
     state.isLeader = true;
     state.isRunningElection = false;
@@ -220,7 +185,7 @@ export function handleBullyMessage(fromId) {
 }
 
 export async function handleLeaderMessage(leaderId, leaderUrl, leaderSeq) {
-    console.log(`[DEBUG] Received URL: ${leaderUrl}`);
+
     console.log(`[Election:${myId()}] Received 'leader' announcement: Node ${leaderId} (${leaderUrl}). Current Seq ${leaderSeq}`);
 
     state.currentLeaderUrl = leaderUrl;
@@ -293,7 +258,7 @@ function startFollowerHeartbeat() {
 
 // Initial Election 
 export async function startInitialElection() {
-
+    const me = myUrl();
     const knownNodes = config.nodes.filter(Boolean);
 
     let foundLeader = false;
@@ -308,30 +273,16 @@ export async function startInitialElection() {
             const infoRes = await fetch(`${url}/election/leader-info`);
             if (!infoRes.ok) continue;
             const info = await infoRes.json();
-
-            console.log(`[Election:${myId()}] Checking leader-info from ${url}: ${JSON.stringify(info)}`);
-            
             if (info?.leaderUrl) {
+                if (info.leaderUrl == me) {
+                    declareLeader();
+                    break;
+                }
                 state.currentLeaderUrl = info.leaderUrl;
                 config.role = 'follower';
                 startFollowerHeartbeat();
                 console.log(`[Election:${myId()}] Starting as FOLLOWER. Found existing leader at ${info.leaderUrl}`);
                 foundLeader = true;
-
-                try {
-                    console.log(`[Election:${myId()}] Initializing sync with leader: ${info.leaderUrl}`);
-                    await syncFromLeader(info.leaderUrl);
-                } catch (syncErr) {
-                    console.error(`[Election:${myId()}] Initial sync failed: ${syncErr.message}`);
-                    // We don't break here; the heartbeat will eventually trigger 
-                    // another sync if it detects a gap later.
-                }
-                
-                notifyFrontend({
-                        type: 'new-leader',
-                        url: leaderUrl,
-                    });
-
                 break;
             }
         } catch {

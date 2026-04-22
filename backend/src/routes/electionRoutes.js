@@ -11,31 +11,7 @@ import {
     getElectionState,
 } from '../replication/bullyElection.js';
 
-import OperationLog from '../models/OperationLog.js';
-
 const router = express.Router();
-
-router.get('/leader-info', async (req, res) => {
-    const state = getElectionState();
-    
-    try {
-        // Query the database for the current highest sequence number on this node
-        const lastLog = await OperationLog.findOne().sort({ seq: -1 });
-        const lastAppliedSeq = lastLog ? lastLog.seq : 0;
-
-        res.json({
-            leaderUrl: state.currentLeaderUrl,
-            leaderId: state.currentLeaderUrl ? parseInt(new URL(state.currentLeaderUrl).port, 10) : null,
-            lastAppliedSeq: lastAppliedSeq // ADD THIS: Crucial for the leader to find the most up-to-date node
-        });
-    } catch (err) {
-        // Fallback if DB query fails
-        res.json({
-            leaderUrl: state.currentLeaderUrl,
-            lastAppliedSeq: 0 
-        });
-    }
-});
 
 // GET leader-info for new nodes
 router.get('/leader-info', (req, res) => {
