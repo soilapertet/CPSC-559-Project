@@ -248,8 +248,6 @@ export async function propagateToFollowers(request_id, operation, data) {
     } else {
         throw new Error(`Replication failed: Only ${successCount}/${W} ACKs received.`);
     }
-
-    return { seq };
 }
 
 // Ping Follower node to check health status

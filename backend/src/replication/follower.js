@@ -23,6 +23,7 @@ export async function initializeFollowerState() {
   console.log(`[Follower:${config.port}] Initialized lastAppliedSeq = ${lastAppliedSeq}`);
 }
 
+// Sync uncommitted or missed operations
 export const syncFromLeader = async (leaderUrl) => {
 
   // Check if node is currently syncing
@@ -39,7 +40,7 @@ export const syncFromLeader = async (leaderUrl) => {
     console.log(`[DEBUG] LAST APPLIED SEQ: ${lastAppliedSeq}`);
     console.log(`[DEBUG] SYNC URL: ${leaderUrl}/sync?from=${lastAppliedSeq}`);
 
-    // Fetch missed operations from current leader
+    // Fetch missed and uncommitted operations from current leader
     const res = await fetch(`${leaderUrl}/sync?from=${lastAppliedSeq}`);
 
     if (!res.ok) {
@@ -132,34 +133,17 @@ const executeOperation = async (seq, request_id, operation, data) => {
 }
 
 const applyOperation = async (seq, request_id, operation, data) => {
-
-  // Check if request is a duplicate write operation
-  // const existingWrite = await OperationLog.findOne({ request_id });
-  // const existingWrite = await OperationLog.findOne({ seq });
-
-  // if (existingWrite) {
-  //   console.log(`[Follower ${config.port}] Duplicate request id ${request_id} detected. Ignoring request.`);
-  //   return;
-  // }
-
   console.log(`[DEBUG] Last Applied Sequence Number: ${lastAppliedSeq}`);
   console.log(`[DEBUG] Circulating Sequence Number: ${seq}`);
 
-  // Check if operation was already applied
-  // if (seq <= lastAppliedSeq) {
-  //   console.log(`[Follower:${config.port}] Old seq ${seq} ignored`);
-  //   return;
-  // }
-
+  // Execute operations with existing log that haven't been committed
   const existingSeq = await OperationLog.findOne({ seq });
-
   if (existingSeq) {
     if (existingSeq.committed) {
       console.log(`[Follower:${config.port}] Seq ${seq} already committed. Skipping.`);
       return;
     }
 
-    // 🔥 CRITICAL CASE: same seq but uncommitted → FIX IT
     console.log(`[Follower:${config.port}] Fixing uncommitted seq ${seq}`);
 
     await executeOperation(seq, request_id, operation, data);
