@@ -3,7 +3,7 @@ import { config } from '../config/config.js';
 import OperationLog from '../models/OperationLog.js';
 import { notifyFrontend } from '../routes/eventRoute.js';
 import { syncFromLeader } from './follower.js';
-import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats } from './leader.js';
+import { initializeFollowerStatus, getFollowerStatus, sendHeartbeats, initializeCounter } from './leader.js';
 
 const ELECTION_TIMEOUT_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 5000;
@@ -26,7 +26,7 @@ function myId() {
 }
 
 function myUrl() {
-    return `http://localhost:${config.port}`;
+    return config.nodes.find(url => new URL(url).port == config.port);
 }
 
 // All known nodes: leader and followers
@@ -99,8 +99,11 @@ export async function initiateElection() {
     if (state.isRunningElection) return;
 
     console.log(`[Election:${myId()}] Starting election (Bully Algorithm).`);
-    state.isRunningElection = true;
+    state.currentLeaderUrl = null;
+    state.isRunningElection = false;
     state.receivedBully = false;
+    state.heartbeatTimer = null;
+    state.isLeader = false;
 
     const higher = higherNodes();
 
@@ -139,6 +142,9 @@ async function declareLeader() {
     state.isRunningElection = false;
     config.role = 'leader';
 
+    // Initialize counter when becoming leader
+    await initializeCounter();
+    
     // Get the current log entry for new leader
     leaderLog = await OperationLog.findOne().sort({ seq: -1 });
     leaderSeq = leaderLog ? leaderLog.seq : 0;
@@ -250,7 +256,7 @@ function startFollowerHeartbeat() {
 
 // Initial Election 
 export async function startInitialElection() {
-
+    const me = myUrl();
     const knownNodes = config.nodes.filter(Boolean);
 
     let foundLeader = false;
@@ -266,6 +272,10 @@ export async function startInitialElection() {
             if (!infoRes.ok) continue;
             const info = await infoRes.json();
             if (info?.leaderUrl) {
+                if (info.leaderUrl == me) {
+                    declareLeader();
+                    break;
+                }
                 state.currentLeaderUrl = info.leaderUrl;
                 config.role = 'follower';
                 startFollowerHeartbeat();

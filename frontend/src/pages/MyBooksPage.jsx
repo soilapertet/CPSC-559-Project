@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { v4 as uuidv4 } from 'uuid'
 import TransactionTable from '../components/TransactionTable'
 import AuthModal from '../components/AuthModal'
 import { useUser } from '../context/UserContext'
+import { retryRequest } from '../utils/retryRequest'
 import { getActiveBorrows, getBorrowHistory, returnBook } from '../api/libraryApi'
 
 export default function MyBooksPage() {
@@ -13,6 +15,7 @@ export default function MyBooksPage() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     if (userId) fetchTransactions()
@@ -33,13 +36,25 @@ export default function MyBooksPage() {
   }
 
   async function handleReturn(bookId) {
+
+    // Genereate a request id for the return request
+    const request_id = uuidv4();
+
     try {
-      await returnBook(userId, bookId)
-      setSuccessMsg('Book returned successfully!')
+      const res = await retryRequest(() =>
+        returnBook(userId, bookId, request_id)
+      );
+
+      setSuccessMsg(res.data.message);
+      setErrorMsg('');              // clear any previous error message
+
       fetchTransactions()
-      setTimeout(() => setSuccessMsg(''), 3000)
-    } catch {
-      // silently ignore for now
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch(err) {
+      const message = err.response?.data?.error || "Failed to return book. Please try again.";
+      setErrorMsg(message);
+      setSuccessMsg('');            // clear any previous success message
+      setTimeout(() => setErrorMsg(''), 3000);
     }
   }
 
@@ -69,6 +84,12 @@ export default function MyBooksPage() {
       {successMsg && (
         <div className="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-xl">
           {successMsg}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+          {errorMsg}
         </div>
       )}
 

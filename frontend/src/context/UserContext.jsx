@@ -20,8 +20,8 @@ export function UserProvider({ children }) {
     setUserId(data.userId)
   }
 
-  async function register(firstName, lastName, userName, email) {
-    await registerUser(firstName, lastName, userName, email)
+  async function register(firstName, lastName, userName, email, requestId) {
+    await registerUser(firstName, lastName, userName, email, requestId)
     await login(userName)
   }
 

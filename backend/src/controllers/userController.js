@@ -1,21 +1,39 @@
 // Handles logic for user registration and authentication.
+import mongoose from "mongoose";
 import User from "../models/User.js";
+import OperationLog from "../models/OperationLog.js";
 import { propagateToFollowers } from "../replication/leader.js";
 
 // ================== Create User ==================
 export const createUser = async (req, res) => {
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { firstName, lastName, userName, email } = req.body;
+    const { firstName, lastName, userName, email, request_id } = req.body;
 
     // Validate input
-    if (!firstName || !lastName || !userName || !email) {
+    if (!firstName || !lastName || !userName || !email || !request_id) {
+      await session.abortTransaction();
       return res.status(400).json({
-        error: "firstName, lastName, userName, and email are required"
+        error: "firstName, lastName, userName, email, and request_id are required"
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase();
+
+    // Check if a duplicate user creation record already exists
+    const existingOp = await OperationLog.findOne({ request_id }).session(session);
+
+    if (existingOp && existingOp.committed) {
+      return res.status(200).json({
+        message: "User already created"
       });
     }
 
     // Check for duplicate username
-    const existingUserName = await User.findOne({ userName });
+    const existingUserName = await User.findOne({ userName }).session(session);
     if (existingUserName) {
       return res.status(400).json({
         error: "Username already taken"
@@ -23,7 +41,7 @@ export const createUser = async (req, res) => {
     }
 
     // Check for duplicate email
-    const existingEmail = await User.findOne({ email });
+    const existingEmail = await User.findOne({ email: normalizedEmail }).session(session);
     if (existingEmail) {
       return res.status(400).json({
         error: "Email already in use"
@@ -35,30 +53,44 @@ export const createUser = async (req, res) => {
       firstName,
       lastName,
       userName,
-      email
+      email: normalizedEmail
     });
 
-    await newUser.save();
+    await newUser.save({ session });
 
-    // Propagate to followers (leader only, fire-and-forget)
-    await propagateToFollowers('createUser', {
-      _id: newUser._id.toString(),
-      firstName,
-      lastName,
-      userName,
-      email
-    });
+    try {
+      // Propagate to followers (leader only, fire-and-forget)
+      await propagateToFollowers(request_id, 'createUser', {
+        _id: newUser._id.toString(),
+        firstName,
+        lastName,
+        userName,
+        email: normalizedEmail
+      });
 
-    res.status(201).json({
-      message: "User created successfully",
-      userId: newUser._id
-    });
+      await session.commitTransaction();
+
+      res.status(201).json({
+        message: "User created successfully",
+        userId: newUser._id
+      });
+    } catch (err) {
+
+      console.error("[Leader] Quorum failed, rolling back changes to database.");
+      await session.abortTransaction();
+
+      return res.status(503).json({
+        error: "Error occurred while registering. Please try again.",
+        request_id
+      })
+    }
 
   } catch (error) {
     res.status(500).json({ error: error.message });
+  } finally {
+    await session.endSession();
   }
 };
-
 
 // ================== Login (No Passwords) ==================
 export const login = async (req, res) => {

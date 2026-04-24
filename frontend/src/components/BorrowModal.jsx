@@ -1,13 +1,17 @@
 import { useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useUser } from '../context/UserContext'
 import { borrowBook } from '../api/libraryApi'
 import AuthModal from './AuthModal'
+import { retryRequest } from '../utils/retryRequest'
 
 export default function BorrowModal({ book, onClose, onSuccess }) {
   const { userId } = useUser()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [authed, setAuthed] = useState(!!userId)
+  const [requestId, setRequestId] = useState(null)
+  const [retrying, setRetrying] = useState(false)
 
   // After auth flow completes, update local authed state
   function handleAuthSuccess() {
@@ -17,17 +21,45 @@ export default function BorrowModal({ book, onClose, onSuccess }) {
   async function handleConfirm() {
     setError('')
     setLoading(true)
+    setRetrying(false)
+
+    // Generate request id for borrow request (only one)
+    let id = requestId;
+    if (!id) {
+      id = uuidv4();
+      setRequestId(id);
+    }
+
     try {
-      const res = await borrowBook(userId, book._id)
-      if (res.data?.message === 'Book borrowed successfully') {
-        onSuccess()
-      } else {
-        setError(res.data?.error || 'Failed to borrow book.')
-      }
+      let firstAttempt = true;
+
+      await retryRequest(async () => {
+        try {
+          return await borrowBook(userId, book._id, id)
+        } catch (err) {
+          if (firstAttempt && err.code === 'ECONNABORTED') {
+            setRetrying(true);
+          }
+          firstAttempt = false;
+          throw err;
+        }
+      });
+
+      setRequestId(null);
+      setRetrying(false);
+      setError('');
+      onSuccess();
+
     } catch (err) {
-      setError(err.response?.data?.error || 'Server error. Please try again.')
+
+      setRetrying(false);
+      const message = err.response?.data?.error || err.message || 'Failed to borrow book. Please try again.';
+      setError(message);
+
     } finally {
-      setLoading(false)
+
+      setLoading(false);
+
     }
   }
 
@@ -43,7 +75,13 @@ export default function BorrowModal({ book, onClose, onSuccess }) {
               You are about to borrow <span className="font-medium text-gray-800">"{book.title}"</span> by {book.author}.
             </p>
 
-            {error && (
+            {retrying && (
+              <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 mb-4">
+                Leader crashed, retrying...
+              </p>
+            )}
+
+            {error && !retrying && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">
                 {error}
               </p>
@@ -57,13 +95,23 @@ export default function BorrowModal({ book, onClose, onSuccess }) {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleConfirm}
-                disabled={loading}
-                className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
-              >
-                {loading ? 'Borrowing...' : 'Confirm Borrow'}
-              </button>
+              {!error ? (
+                <button
+                  onClick={handleConfirm}
+                  disabled={loading}
+                  className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                >
+                  {loading ? 'Borrowing...' : 'Confirm Borrow'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConfirm}
+                  disabled={loading}
+                  className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+                >
+                  {loading ? 'Retrying...' : 'Retry'}
+                </button>
+              )}
             </div>
           </>
         )}

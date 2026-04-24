@@ -15,10 +15,8 @@ import syncRoutes from './routes/syncRoutes.js';
 import electionRoutes from './routes/electionRoutes.js';
 import { startInitialElection } from './replication/bullyElection.js';
 
-import { initializeSeq } from "./replication/leader.js";
-
-// Create a connection to the MongoDB instance
-connectDB();
+import { initializeCounter } from "./replication/leader.js";
+import { initializeFollowerState } from "./replication/follower.js";
 
 const app = express();
 app.use(cors());
@@ -27,13 +25,13 @@ app.use(express.json());
 // Requests to /user will be directed to the userRoutes.js module
 app.use("/books/user", userRoutes);
 
-// Requests to /browse will be directed to the browseRoutes.js module
+// Requests to /browse will be directed to the booksRoutes.js module
 app.use("/books", booksRoutes);
 
 // Requests to /borrow will be directed to the borrowRoutes.js module
 app.use("/borrow", borrowRoutes);
 
-// Follower nodes will accept replication from leader  through /replicate node
+// Follower nodes will accept replication from leader through /replicate node
 app.use("/replicate", replicateRoutes);
 
 // Requests to /sync will direct nodes to syncRoutes.js module
@@ -48,17 +46,36 @@ app.use("/election", electionRoutes);
 // Add an endpoint for frontend to receive real-time updates
 app.use("/events", eventRoute);
 
-app.listen(config.port, () => {
+// Add an endpoint to crash leader during mid-write for demo purposes
+app.post('/debug/crash', (req, res) => {
+  console.log("[DEBUG] Crashing leader...");
+  res.status(200).send('Crashing');
 
-  console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
-
-  // Initialize sequence number to the latest sequence number logged to the db
-  initializeSeq();
-
-  // Initiate leader election on server setup
   setTimeout(() => {
-    startInitialElection();
-  }, 2000);
-
+    process.exit(1);
+  }, 100);
 });
 
+
+async function startServer() {
+
+  // Create a connection to the MongoDB instance
+  await connectDB();
+
+  // Initialize follower state
+  await initializeFollowerState();
+
+  app.listen(config.port, '0.0.0.0', () => {
+
+    console.log(`${config.role.toUpperCase()} running on port ${config.port}`);
+
+    // Initiate leader election on server setup
+    setTimeout(() => {
+      startInitialElection();
+    }, 8000);
+
+  });
+
+}
+
+startServer();

@@ -5,5 +5,8 @@ const router = express.Router();
 
 // Receives replication payloads from the leader node
 router.post('/', handleReplicate);
+router.all('/ACK', (req, res) => {
+    res.status(200).send('OK');
+});
 
 export default router;

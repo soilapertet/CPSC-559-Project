@@ -72,6 +72,13 @@ export default function App() {
       connectSSE(url)
     })
 
+    // Listens for replica-state event from the backend
+    es.addEventListener('follower-state', e => {
+      const { urls } = JSON.parse(e.data)
+      console.log(`[SSE] Synchronizing replica state: ${urls.length} replicas found.`)
+      urls.forEach(url => addFollower(url))
+    })
+
     es.onerror = () => {
       es.close()
       setReconnecting(true)
